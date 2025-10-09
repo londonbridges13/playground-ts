@@ -373,6 +373,7 @@ export function Line({ dataIndex, variant, rotation, offsetX, offsetY }: Line) {
         x: RADIUS + offsetX + LINE_WIDTH_LARGE,
         y: RADIUS + offsetY + LINE_WIDTH_LARGE,
         width,
+        pointerEvents: isInteractive ? 'auto' : 'none',
       }}
       initial={false}
       animate={{
@@ -385,7 +386,7 @@ export function Line({ dataIndex, variant, rotation, offsetX, offsetY }: Line) {
             damping: 25,
           },
         },
-        scale: zoom ? (active ? 1 : 0.5) : 1,
+        scale: zoom ? 0.2 : 1,
       }}
     >
       {/* Forces Safari to render with GPU */}
