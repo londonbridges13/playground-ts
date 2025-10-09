@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { Node } from '@xyflow/react';
 import { m, AnimatePresence } from 'motion/react';
@@ -12,28 +12,29 @@ type NodeDialogProps = {
   node: Node | null;
   open: boolean;
   onClose: () => void;
+  disableScrollLock?: boolean;
 };
 
-export function NodeDialog({ node, open, onClose }: NodeDialogProps) {
+export function NodeDialog({ node, open, onClose, disableScrollLock = true }: NodeDialogProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Reset scroll position and manage body overflow when dialog opens
   useEffect(() => {
     if (open) {
-      // Reset scroll to top when opening
-      window.scrollTo(0, 0);
-      document.documentElement.scrollTop = 0;
+      // Reset container scroll to top when opening
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0;
+      }
 
-      // Allow body to scroll for the radial timeline
-      document.body.style.overflow = 'auto';
-      document.body.style.overflowX = 'hidden';
+      // Lock body scroll when dialog is open (container will handle scroll)
+      document.body.style.overflow = 'hidden';
     } else {
       // Restore body overflow when closing
       document.body.style.overflow = '';
-      document.body.style.overflowX = '';
     }
 
     return () => {
       document.body.style.overflow = '';
-      document.body.style.overflowX = '';
     };
   }, [open]);
 
@@ -43,6 +44,7 @@ export function NodeDialog({ node, open, onClose }: NodeDialogProps) {
     <AnimatePresence>
       {open && (
         <m.div
+          ref={containerRef}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -54,7 +56,8 @@ export function NodeDialog({ node, open, onClose }: NodeDialogProps) {
             right: 0,
             bottom: 0,
             width: '100vw',
-            minHeight: '100vh',
+            overflow: 'auto',
+            overflowX: 'hidden',
             zIndex: 9999,
             margin: 0,
             padding: 0,
@@ -63,6 +66,7 @@ export function NodeDialog({ node, open, onClose }: NodeDialogProps) {
         >
           <RadialTimeline
             onClose={onClose}
+            scrollTargetRef={containerRef}
             nodeLabel={(node?.data?.label as string) || 'Timeline'}
           />
         </m.div>

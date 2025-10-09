@@ -49,6 +49,7 @@ export interface TimelineContext extends Constants {
   setHoveredIndex: React.Dispatch<React.SetStateAction<number | null>>;
   hoveredIndex: number | null;
   activeIndex: number | null;
+  scrollTargetRef?: React.RefObject<HTMLElement>;
 }
 
 const TimelineContext = React.createContext({} as TimelineContext);
@@ -59,9 +60,10 @@ export const useTimeline = () => React.useContext(TimelineContext);
 interface RadialTimelineProps {
   onClose?: () => void;
   nodeLabel?: string;
+  scrollTargetRef?: React.RefObject<HTMLElement>;
 }
 
-export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelineProps = {}) {
+export default function RadialTimeline({ onClose, nodeLabel, scrollTargetRef }: RadialTimelineProps = {}) {
   useShortcuts({
     Escape: () => {
       if (!zoom) rotate.set(0);
@@ -99,6 +101,7 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
     activeIndex,
     zoom,
     rotate,
+    scrollTargetRef,
   };
 
   function arrow(dir: 1 | -1) {
@@ -139,12 +142,16 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
       }
     },
     {
-      target: typeof window !== "undefined" ? window : undefined,
+      target: scrollTargetRef?.current ?? (typeof window !== "undefined" ? window : undefined),
     }
   );
 
   useScroll(
     ({ delta: [_, dy], offset: [__, oy] }) => {
+      // Log scroll progress
+      const scrollPercentage = ((oy / SCROLL_SNAP) * 100).toFixed(1);
+      console.log(`📊 Scroll Progress: ${oy}px / ${SCROLL_SNAP}px (${scrollPercentage}%) | Scale: ${scale.get().toFixed(2)} | Zoom: ${zoom}`);
+
       scrollY.stop();
       scrollY.set(-oy);
 
@@ -160,6 +167,7 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
 
       if (oy <= 0) {
         // Zoom out
+        console.log('🔄 Zooming OUT - scroll at top');
         scale.set(SCALE_DEFAULT);
         setZoom(false);
         intersectingAtY.set(0);
@@ -170,6 +178,7 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
 
       if (oy >= SCROLL_SNAP) {
         // Zoom in
+        console.log('🎯 SNAP TRIGGERED - Zooming IN to full scale');
         scale.set(SCALE_ZOOM);
         if (activeIndex === null) {
           const index = getIndexForRotate(rotate.get());
@@ -182,16 +191,19 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
       let newScale = scale.get() + dy * SCALE_ZOOM_FACTOR;
       newScale = clamp(newScale, [1, SCALE_ZOOM]);
       scale.set(newScale);
+      console.log(`⚡ Progressive zoom: scale=${newScale.toFixed(2)}`);
     },
     {
-      target: typeof window !== "undefined" ? window : undefined,
+      target: scrollTargetRef?.current ?? (typeof window !== "undefined" ? window : undefined),
     }
   );
 
   React.useEffect(() => {
     window.history.scrollRestoration = "manual";
-    document.documentElement.scrollTo(0, 0);
-  }, []);
+    const el = scrollTargetRef?.current ?? document.documentElement;
+    el.scrollTo(0, 0);
+    console.log('🚀 RadialTimeline mounted - scroll reset to top');
+  }, [scrollTargetRef]);
 
   React.useEffect(() => {
     const activeElement = document.querySelector("[data-active=true]");
@@ -209,14 +221,17 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
     setZoom(true);
     setActiveIndex(targetIndex);
 
+    const el = scrollTargetRef?.current ?? document.documentElement;
     if (zoom) {
-      document.documentElement.scrollTo({
+      console.log(`🎯 Rotating to index ${targetIndex} - scrolling to ${SCROLL_SNAP}px (smooth)`);
+      el.scrollTo({
         top: SCROLL_SNAP,
         left: 0,
         behavior: "smooth",
       });
     } else {
-      document.documentElement.scrollTop = SCROLL_SNAP;
+      console.log(`🎯 Rotating to index ${targetIndex} - scrolling to ${SCROLL_SNAP}px (instant)`);
+      (el as any).scrollTop = SCROLL_SNAP;
     }
 
     const newRotate = getRotateForIndex(targetIndex, rotate.get());
@@ -250,39 +265,44 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
           ✕ Close
         </button>
       )}
-      <Provider value={context}>
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <m.div
-            className="absolute origin-[50%_7vh] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 [--highlight-color:var(--color-orange)]"
-            style={{
-              width: constants.SIZE,
-              height: constants.SIZE,
-              scale,
-              filter: useTransform(scrollY, (y) => {
-                if (intersectingAtY.get() === 0) return "blur(0px)";
-                let offsetY = Math.abs(y) - intersectingAtY.get();
-                const blur = clamp(offsetY * 0.005, [0, 4]);
-                return `blur(${blur}px)`;
-              }),
-            }}
+      <div style={{ minHeight: '300vh', position: 'relative' }}>
+        <Provider value={context}>
+          <div
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{ pointerEvents: zoom ? 'auto' : 'none' }}
           >
-            {/* Rotate */}
-            {isHydrated && (
-              <m.div
-                ref={ref}
-                className="w-full h-full"
-                style={{ rotate }}
-                transition={transition}
-              >
-                {lines.map((line, index) => {
-                  return <Line key={index} {...line} />;
-                })}
-              </m.div>
-            )}
-          </m.div>
-        </div>
-        <Sheet ref={sheetRef} />
-      </Provider>
+            <m.div
+              className="absolute origin-[50%_7vh] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 [--highlight-color:var(--color-orange)]"
+              style={{
+                width: constants.SIZE,
+                height: constants.SIZE,
+                scale,
+                filter: useTransform(scrollY, (y) => {
+                  if (intersectingAtY.get() === 0) return "blur(0px)";
+                  let offsetY = Math.abs(y) - intersectingAtY.get();
+                  const blur = clamp(offsetY * 0.005, [0, 4]);
+                  return `blur(${blur}px)`;
+                }),
+              }}
+            >
+              {/* Rotate */}
+              {isHydrated && (
+                <m.div
+                  ref={ref}
+                  className="w-full h-full"
+                  style={{ rotate }}
+                  transition={transition}
+                >
+                  {lines.map((line, index) => {
+                    return <Line key={index} {...line} />;
+                  })}
+                </m.div>
+              )}
+            </m.div>
+          </div>
+          <Sheet ref={sheetRef} />
+        </Provider>
+      </div>
     </main>
   );
 }
@@ -445,7 +465,7 @@ export function Sheet({
   ref: React.Ref<HTMLDivElement>;
   children?: React.ReactNode;
 }) {
-  const { zoom, activeIndex } = useTimeline();
+  const { zoom, activeIndex, scrollTargetRef } = useTimeline();
   const [p1, setP1] = React.useState(loremIpsum[0]);
   const [p2, setP2] = React.useState(loremIpsum[1]);
   const [item, setItem] = React.useState<Item | null>(null);
@@ -483,7 +503,9 @@ export function Sheet({
       }}
       onAnimationComplete={() => {
         if (!zoom) {
-          document.documentElement.scrollTop = 0;
+          const el = scrollTargetRef?.current ?? document.documentElement;
+          (el as any).scrollTop = 0;
+          console.log('✅ Zoom out animation complete - scroll reset to top');
         }
       }}
     >
