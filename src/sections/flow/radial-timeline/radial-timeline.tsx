@@ -577,7 +577,12 @@ export function useLines(): [Lines, Constants] {
   useEvent("resize", () => {
     const widthScale = window.innerWidth / 960;
     const heightScale = window.innerHeight / 640;
-    const newScale = clamp(Math.min(widthScale, heightScale), [0.4, 1]);
+    const baseScale = Math.min(widthScale, heightScale);
+
+    // On small screens (< 600px), allow up to 1.0 scale
+    // On larger screens, limit to 0.8 scale (20% reduction)
+    const maxScale = window.innerWidth < 600 ? 1 : 0.8;
+    const newScale = clamp(baseScale, [0.4, maxScale]);
     setRootScale(newScale);
   });
 
