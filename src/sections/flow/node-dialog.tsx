@@ -38,10 +38,8 @@ export function NodeDialog({ node, open, onClose, disableScrollLock = true }: No
     };
   }, [open]);
 
-  if (!open) return null;
-
   return createPortal(
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {open && (
         <m.div
           ref={containerRef}

@@ -27,10 +27,8 @@ export function NodeDialog({ node, open, onClose }: NodeDialogProps) {
     };
   }, [open]);
 
-  if (!open) return null;
-
   return createPortal(
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {open && (
         <m.div
           initial={{ opacity: 0 }}

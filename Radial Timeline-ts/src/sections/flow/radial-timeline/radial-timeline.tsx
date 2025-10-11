@@ -489,8 +489,12 @@ export function Sheet({
     >
       {children ?? (
         <div className="text-gray12 text-15 leading-28 flex flex-col gap-6 [&>p]:leading-32 [&>p]:text-16 ">
-          <div className="w-full h-[360px] bg-gray-200 rounded-lg flex items-center justify-center">
-            <span className="text-gray-500">Image placeholder</span>
+          <div className="w-full h-[360px] rounded-lg overflow-hidden">
+            <Image
+              src={img2}
+              alt={item?.title || "Timeline image"}
+              className="w-full h-full object-cover"
+            />
           </div>
           <i className="text-24">{item?.title}</i>
           <p>{p1}</p>

@@ -85,13 +85,13 @@ export const HexagonNode = memo(({ data, isConnectable, selected }: NodeProps) =
         type="target"
         position={Position.Top}
         isConnectable={isConnectable}
-        style={{ background: '#555', top: 10 }}
+        style={{ background: '#555', top: 10, opacity: 0 }}
       />
       <Handle
         type="source"
         position={Position.Bottom}
         isConnectable={isConnectable}
-        style={{ background: '#555', bottom: 10 }}
+        style={{ background: '#555', bottom: 10, opacity: 0 }}
       />
       <Handle
         type="target"
