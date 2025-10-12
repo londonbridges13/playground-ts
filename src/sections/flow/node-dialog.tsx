@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Node } from '@xyflow/react';
 import { m, AnimatePresence } from 'motion/react';
@@ -17,6 +17,7 @@ type NodeDialogProps = {
 
 export function NodeDialog({ node, open, onClose, disableScrollLock = true }: NodeDialogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   // Reset scroll position and manage body overflow when dialog opens
   useEffect(() => {
@@ -38,6 +39,15 @@ export function NodeDialog({ node, open, onClose, disableScrollLock = true }: No
     };
   }, [open]);
 
+  const handleClose = () => {
+    setIsClosing(true);
+    // Wait for radial timeline fadeOut to complete
+    setTimeout(() => {
+      setIsClosing(false);
+      onClose();
+    }, 300); // Radial timeline fadeOut duration
+  };
+
   return createPortal(
     <AnimatePresence mode="wait">
       {open && (
@@ -46,7 +56,12 @@ export function NodeDialog({ node, open, onClose, disableScrollLock = true }: No
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{
+            duration: 0.5,
+            exit: {
+              duration: 0.3,
+            }
+          }}
           style={{
             position: 'fixed',
             top: 0,
@@ -63,7 +78,8 @@ export function NodeDialog({ node, open, onClose, disableScrollLock = true }: No
           }}
         >
           <RadialTimeline
-            onClose={onClose}
+            onClose={handleClose}
+            isClosing={isClosing}
             scrollTargetRef={containerRef}
             nodeLabel={(node?.data?.label as string) || 'Timeline'}
           />

@@ -59,9 +59,10 @@ export const useTimeline = () => React.useContext(TimelineContext);
 interface RadialTimelineProps {
   onClose?: () => void;
   nodeLabel?: string;
+  isClosing?: boolean;
 }
 
-export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelineProps = {}) {
+export default function RadialTimeline({ onClose, nodeLabel, isClosing = false }: RadialTimelineProps = {}) {
   useShortcuts({
     Escape: () => {
       if (!zoom) rotate.set(0);
@@ -254,6 +255,13 @@ export default function RadialTimeline({ onClose, nodeLabel }: RadialTimelinePro
         <div className="fixed translate-center">
           <m.div
             className="absolute origin-[50%_7vh] translate-center [--highlight-color:var(--color-orange)]"
+            animate={{
+              opacity: isClosing ? 0 : 1,
+            }}
+            transition={{
+              duration: 0.3,
+              ease: "easeOut"
+            }}
             style={{
               width: constants.SIZE,
               height: constants.SIZE,

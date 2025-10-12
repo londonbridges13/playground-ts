@@ -61,9 +61,10 @@ interface RadialTimelineProps {
   onClose?: () => void;
   nodeLabel?: string;
   scrollTargetRef?: React.RefObject<HTMLElement>;
+  isClosing?: boolean;
 }
 
-export default function RadialTimeline({ onClose, nodeLabel, scrollTargetRef }: RadialTimelineProps = {}) {
+export default function RadialTimeline({ onClose, nodeLabel, scrollTargetRef, isClosing = false }: RadialTimelineProps = {}) {
   useShortcuts({
     Escape: () => {
       if (!zoom) rotate.set(0);
@@ -273,6 +274,13 @@ export default function RadialTimeline({ onClose, nodeLabel, scrollTargetRef }: 
           >
             <m.div
               className="absolute origin-[50%_7vh] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 [--highlight-color:var(--color-orange)]"
+              animate={{
+                opacity: isClosing ? 0 : 1,
+              }}
+              transition={{
+                duration: 0.3,
+                ease: "easeOut"
+              }}
               style={{
                 width: constants.SIZE,
                 height: constants.SIZE,
