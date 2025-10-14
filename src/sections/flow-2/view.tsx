@@ -8,11 +8,9 @@ import '@xyflow/react/dist/style.css';
 import type { Node, Edge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
 
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import Fab from '@mui/material/Fab';
 
 import { Iconify } from 'src/components/iconify';
-import { DashboardContent } from 'src/layouts/dashboard';
 import { HexagonNode } from './hexagon-node';
 import { CustomAnimatedEdge } from './custom-edge';
 import { NodeDialog } from './node-dialog';
@@ -96,12 +94,10 @@ const initialEdges: Edge[] = [
 // ----------------------------------------------------------------------
 
 type Props = {
-  title?: string;
-  description?: string;
   sx?: SxProps<Theme>;
 };
 
-export function FlowView({ title = 'Flow', description, sx }: Props) {
+export function FlowView({ sx }: Props) {
   const [nodes, setNodes] = useState<Node[]>(initialNodes);
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
 
@@ -172,13 +168,12 @@ export function FlowView({ title = 'Flow', description, sx }: Props) {
     <Box
       sx={[
         (theme) => ({
-          mt: 5,
-          width: 1,
-          height: 600,
-          borderRadius: 2,
-          border: `solid 1px ${theme.vars.palette.divider}`,
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
           overflow: 'hidden',
-          position: 'relative',
         }),
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
@@ -193,6 +188,11 @@ export function FlowView({ title = 'Flow', description, sx }: Props) {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         fitView
+        fitViewOptions={{
+          maxZoom: 0.75,
+          minZoom: 0.75,
+        }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.75 }}
         defaultEdgeOptions={{
           type: 'animated',
           animated: false,
@@ -261,12 +261,7 @@ export function FlowView({ title = 'Flow', description, sx }: Props) {
 
   return (
     <>
-      <DashboardContent maxWidth="xl">
-        <Typography variant="h4"> {title} </Typography>
-        {description && <Typography sx={{ mt: 1 }}> {description} </Typography>}
-
-        {renderContent()}
-      </DashboardContent>
+      {renderContent()}
 
       {/* NodeDialog with React Portal - renders outside React Flow */}
       <NodeDialog
