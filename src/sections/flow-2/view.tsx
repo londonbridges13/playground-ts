@@ -17,6 +17,7 @@ import { HexagonNode } from './hexagon-node';
 import { CustomAnimatedEdge } from './custom-edge';
 import { NodeDialog } from './node-dialog';
 import { Stackable, AvatarCard } from './stackable-avatars';
+import { FloatingTextInput } from './floating-text-input';
 
 // ----------------------------------------------------------------------
 
@@ -200,41 +201,61 @@ export function FlowView({ title = 'Flow', description, sx }: Props) {
         <Background variant="dots" gap={12} size={1} />
       </ReactFlow>
 
-      {/* Floating button - Bottom Left */}
-      <Fab
-        color="primary"
-        aria-label="open radial timeline"
+      {/* Container for all bottom elements */}
+      <Box
         sx={{
           position: 'absolute',
           bottom: 16,
-          left: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)',
+          maxWidth: 700,
           zIndex: 10,
         }}
-        onClick={() => {
-          setSelectedNode({ id: 'fab-button', data: { label: 'Radial Timeline' } } as Node);
-          setDialogOpen(true);
-        }}
       >
-        <Iconify icon="lucide:loader" width={24} />
-      </Fab>
+        {/* Floating button - Bottom Left */}
+        <Fab
+          color="primary"
+          aria-label="open radial timeline"
+          sx={{
+            position: 'absolute',
+            bottom: 104,
+            left: 0,
+            zIndex: 11,
+          }}
+          onClick={() => {
+            setSelectedNode({ id: 'fab-button', data: { label: 'Radial Timeline' } } as Node);
+            setDialogOpen(true);
+          }}
+        >
+          <Iconify icon="lucide:loader" width={24} />
+        </Fab>
 
-      {/* Stackable Avatar Component - Bottom Right */}
-      <div style={{
-        position: 'absolute',
-        bottom: 16,
-        right: 16,
-        zIndex: 10
-      }}>
-        <Stackable visibleWhenCollapsed={3} itemSpacing={3}>
-          <AvatarCard avatarIndex={1} />
-          <AvatarCard avatarIndex={2} />
-          <AvatarCard avatarIndex={3} />
-          <AvatarCard avatarIndex={4} />
-          <AvatarCard avatarIndex={5} />
-          <AvatarCard avatarIndex={6} />
-          <AvatarCard avatarIndex={7} />
-        </Stackable>
-      </div>
+        {/* Floating Text Input */}
+        <Box sx={{ width: '100%' }}>
+          <FloatingTextInput />
+        </Box>
+
+        {/* Stackable Avatar Component - Bottom Right */}
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 104,
+            right: 0,
+            zIndex: 11,
+          }}
+        >
+          <Stackable visibleWhenCollapsed={3} itemSpacing={3}>
+            <AvatarCard avatarIndex={1} />
+            <AvatarCard avatarIndex={2} />
+            <AvatarCard avatarIndex={3} />
+            <AvatarCard avatarIndex={4} />
+            <AvatarCard avatarIndex={5} />
+            <AvatarCard avatarIndex={6} />
+            <AvatarCard avatarIndex={7} />
+          </Stackable>
+        </Box>
+      </Box>
     </Box>
   );
 
