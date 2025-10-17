@@ -1,21 +1,28 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import type { Theme, SxProps } from '@mui/material/styles';
+import { useCallback, useMemo, useState } from 'react';
 
-import { ReactFlow, applyNodeChanges, applyEdgeChanges, addEdge, Background } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import type { Node, Edge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
+
+import type { Theme, SxProps } from '@mui/material/styles';
+import type { Connection, Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
+
+import { ReactFlow, Background, addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
 
 import { Iconify } from 'src/components/iconify';
-import { HexagonNode } from './hexagon-node';
+
 import { CustomAnimatedEdge } from './custom-edge';
-import { NodeDialog } from './node-dialog';
-import { Stackable, AvatarCard } from './stackable-avatars';
 import { FloatingTextInput } from './floating-text-input';
+import { GlassNode } from './glass-node';
+import { HexagonNode } from './hexagon-node';
+import { LiquidGlassOverlay } from './liquid-glass-overlay';
+import { NodeDialog } from './node-dialog';
+import { NodeContextDrawer } from './node-context-drawer';
+import { PathChatDrawer } from './path-chat-drawer';
+import { Stackable, AvatarCard } from './stackable-avatars';
 
 // ----------------------------------------------------------------------
 
@@ -24,19 +31,25 @@ const initialNodes: Node[] = [
     id: '1',
     type: 'hexagon',
     position: { x: -145, y: -75.33 },
-    data: { label: 'Node 1', opacity: 1 }
+    data: { label: 'Node 1', opacity: 1, actionType: 'dialog' }
   },
   {
     id: '2',
     type: 'hexagon',
     position: { x: 429.80, y: -52.41 },
-    data: { label: 'Node 2', opacity: 1 }
+    data: { label: 'Node 2', opacity: 1, actionType: 'drawer' }
   },
   {
     id: '3',
     type: 'hexagon',
     position: { x: 200, y: 200 },
-    data: { label: 'Node 3', opacity: 1 }
+    data: { label: 'Node 3', opacity: 1, actionType: 'dialog' }
+  },
+  {
+    id: '4',
+    type: 'glass',
+    position: { x: -200, y: 250 },
+    data: { label: 'Glass Node', opacity: 1, actionType: 'drawer' }
   },
 ];
 
@@ -105,8 +118,18 @@ export function FlowView({ sx }: Props) {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // State for avatar stack blur effect
+  const [avatarStackOpen, setAvatarStackOpen] = useState(false);
+
+  // State for PathChatDrawer
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
+
+  // State for NodeContextDrawer
+  const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
+  const [contextNode, setContextNode] = useState<Node | null>(null);
+
   // Define node types - memoized to prevent re-renders
-  const nodeTypes = useMemo(() => ({ hexagon: HexagonNode }), []);
+  const nodeTypes = useMemo(() => ({ hexagon: HexagonNode, glass: GlassNode }), []);
 
   // Define edge types - memoized to prevent re-renders
   const edgeTypes = useMemo(() => ({ animated: CustomAnimatedEdge }), []);
@@ -151,10 +174,19 @@ export function FlowView({ sx }: Props) {
     []
   );
 
-  // Handle node click to open Radial Timeline
+  // Handle node click - route to dialog or drawer based on node data
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node);
-    setDialogOpen(true);
+    const actionType = node.data?.actionType || 'dialog'; // Default to 'dialog'
+
+    if (actionType === 'drawer') {
+      // Open context drawer for nodes configured with actionType: 'drawer'
+      setContextNode(node);
+      setContextDrawerOpen(true);
+    } else {
+      // Open radial dialog for nodes configured with actionType: 'dialog' (or default)
+      setSelectedNode(node);
+      setDialogOpen(true);
+    }
   }, []);
 
   // Handle dialog close
@@ -162,6 +194,23 @@ export function FlowView({ sx }: Props) {
     setDialogOpen(false);
     // Optional: Clear selected node after animation completes
     setTimeout(() => setSelectedNode(null), 500);
+  }, []);
+
+  // Handle context drawer close
+  const handleCloseContextDrawer = useCallback(() => {
+    setContextDrawerOpen(false);
+    // Optional: Clear context node after animation completes
+    setTimeout(() => setContextNode(null), 500);
+  }, []);
+
+  // Handle chat drawer
+  const handleSendMessage = useCallback((message: string) => {
+    console.log('Message sent:', message);
+    setChatDrawerOpen(true);
+  }, []);
+
+  const handleCloseChatDrawer = useCallback(() => {
+    setChatDrawerOpen(false);
   }, []);
 
   const renderContent = () => (
@@ -187,6 +236,15 @@ export function FlowView({ sx }: Props) {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        panOnScroll
+        panOnScrollMode="free"
+        panOnScrollSpeed={1.3}
+        zoomOnScroll={false}
+        zoomOnPinch
+        zoomOnDoubleClick
+        minZoom={0.5}
+        maxZoom={2}
+        preventScrolling
         fitView
         fitViewOptions={{
           maxZoom: 0.75,
@@ -200,6 +258,14 @@ export function FlowView({ sx }: Props) {
       >
         <Background variant="dots" gap={12} size={1} />
       </ReactFlow>
+
+      {/* Liquid Glass Overlay - appears when avatars are expanded */}
+      <LiquidGlassOverlay
+        open={avatarStackOpen}
+        onClick={() => setAvatarStackOpen(false)}
+        noiseFrequency={0.005}
+        distortionStrength={0}
+      />
 
       {/* Container for all bottom elements */}
       <Box
@@ -233,7 +299,7 @@ export function FlowView({ sx }: Props) {
 
         {/* Floating Text Input */}
         <Box sx={{ width: '100%' }}>
-          <FloatingTextInput />
+          <FloatingTextInput onSend={handleSendMessage} />
         </Box>
 
         {/* Stackable Avatar Component - Bottom Right */}
@@ -245,7 +311,12 @@ export function FlowView({ sx }: Props) {
             zIndex: 11,
           }}
         >
-          <Stackable visibleWhenCollapsed={3} itemSpacing={3}>
+          <Stackable
+            visibleWhenCollapsed={3}
+            itemSpacing={3}
+            open={avatarStackOpen}
+            onOpenChange={setAvatarStackOpen}
+          >
             <AvatarCard avatarIndex={1} />
             <AvatarCard avatarIndex={2} />
             <AvatarCard avatarIndex={3} />
@@ -268,6 +339,19 @@ export function FlowView({ sx }: Props) {
         node={selectedNode}
         open={dialogOpen}
         onClose={handleCloseDialog}
+      />
+
+      {/* NodeContextDrawer - opens from left with transparent background */}
+      <NodeContextDrawer
+        node={contextNode}
+        open={contextDrawerOpen}
+        onClose={handleCloseContextDrawer}
+      />
+
+      {/* PathChatDrawer - opens from right with transparent background */}
+      <PathChatDrawer
+        open={chatDrawerOpen}
+        onClose={handleCloseChatDrawer}
       />
     </>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { m, AnimatePresence } from "framer-motion";
 
 // ----------------------------------------------------------------------
@@ -164,15 +165,38 @@ function Avatar({ index = 1 }) {
 // AvatarCard Component
 // ----------------------------------------------------------------------
 
-function AvatarCard({ avatarIndex = 1 }) {
+function AvatarCard({ avatarIndex = 1, isOpen = false }: { avatarIndex?: number; isOpen?: boolean }) {
   return (
     <div style={{
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       width: "100%",
-      height: "100%"
+      height: "100%",
+      position: "relative"
     }}>
+      {/* Blur shadow layer - blurred copy of avatar SVG at 80% opacity */}
+      {isOpen && (
+        <div style={{
+          position: "absolute",
+          borderRadius: "50%",
+          width: "42px",
+          height: "42px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          opacity: 0.8,
+          filter: "blur(12px)",
+          transform: "translateY(2px)",
+          zIndex: -1,
+          pointerEvents: "none"
+        }}>
+          <Avatar index={avatarIndex} />
+        </div>
+      )}
+
+      {/* Avatar - always sharp */}
       <div style={{
         borderRadius: "50%",
         width: "42px",
@@ -180,7 +204,9 @@ function AvatarCard({ avatarIndex = 1 }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        overflow: "hidden"
+        overflow: "hidden",
+        position: "relative",
+        zIndex: 1
       }}>
         <Avatar index={avatarIndex} />
       </div>
@@ -195,13 +221,26 @@ function AvatarCard({ avatarIndex = 1 }) {
 export function Stackable({
   children,
   visibleWhenCollapsed = 3,
-  itemSpacing = 6
+  itemSpacing = 6,
+  open: controlledOpen,
+  onOpenChange
 }: {
   children: React.ReactNode;
   visibleWhenCollapsed?: number;
   itemSpacing?: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Use controlled state if provided, otherwise use internal state
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const handleSetOpen = (newOpen: boolean) => {
+    if (controlledOpen === undefined) {
+      setInternalOpen(newOpen);
+    }
+    onOpenChange?.(newOpen);
+  };
 
   const childArray = Array.isArray(children) ? children : [children];
 
@@ -211,6 +250,14 @@ export function Stackable({
 
   // Limit visible items to the specified number when collapsed
   const visibleCount = Math.min(visibleWhenCollapsed, childArray.length);
+
+  // Clone children with isOpen prop
+  const childrenWithProps = childArray.map((child) => {
+    if (React.isValidElement(child)) {
+      return React.cloneElement(child, { isOpen: open } as any);
+    }
+    return child;
+  });
 
   return (
     <div
@@ -238,7 +285,7 @@ export function Stackable({
           stiffness: 400,
           damping: 17
         }}
-        onClick={() => setOpen(!open)}
+        onClick={() => handleSetOpen(!open)}
       >
         <div
           style={{
@@ -250,12 +297,12 @@ export function Stackable({
             paddingRight: 12
           }}
         >
-          {childArray[0]}
+          {childrenWithProps[0]}
         </div>
       </m.div>
 
       {/* Remaining items - Expand upward */}
-      {childArray.slice(1).map((child, index) => {
+      {childrenWithProps.slice(1).map((child, index) => {
         const itemNum = index + 2;
         const isVisible = itemNum <= visibleCount;
 
@@ -293,7 +340,7 @@ export function Stackable({
               damping: 20,
               mass: 1
             }}
-            onClick={() => setOpen(!open)}
+            onClick={() => handleSetOpen(!open)}
           >
             <div
               style={{

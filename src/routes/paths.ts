@@ -46,7 +46,6 @@ export const paths = {
     two: `${ROOTS.DASHBOARD}/two`,
     three: `${ROOTS.DASHBOARD}/three`,
     flow: `${ROOTS.DASHBOARD}/flow`,
-    flow2: `${ROOTS.DASHBOARD}/flow-2`,
     radialTimeline: `${ROOTS.DASHBOARD}/radial-timeline`,
     group: {
       root: `${ROOTS.DASHBOARD}/group`,
@@ -54,4 +53,6 @@ export const paths = {
       six: `${ROOTS.DASHBOARD}/group/six`,
     },
   },
+  // PATH INTERFACE
+  path: '/path',
 };

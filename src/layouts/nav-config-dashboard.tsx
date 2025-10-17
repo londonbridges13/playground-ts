@@ -61,7 +61,7 @@ export const navData: NavSectionProps['data'] = [
       { title: 'Two', path: paths.dashboard.two, icon: ICONS.ecommerce },
       { title: 'Three', path: paths.dashboard.three, icon: ICONS.analytics },
       { title: 'Flow', path: paths.dashboard.flow, icon: ICONS.blank },
-      { title: 'Flow 2', path: paths.dashboard.flow2, icon: ICONS.blank },
+      { title: 'Path Interface', path: paths.path, icon: ICONS.blank },
       { title: 'Radial Timeline', path: paths.dashboard.radialTimeline, icon: ICONS.calendar },
     ],
   },

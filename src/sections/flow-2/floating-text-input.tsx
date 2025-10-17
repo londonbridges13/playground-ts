@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
+
 import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import AddIcon from '@mui/icons-material/Add';
-import TuneIcon from '@mui/icons-material/Tune';
+import Menu from '@mui/material/Menu';
+import TextField from '@mui/material/TextField';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import AddIcon from '@mui/icons-material/Add';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import TuneIcon from '@mui/icons-material/Tune';
 
 // ----------------------------------------------------------------------
 
@@ -23,7 +24,11 @@ const models = [
   'GPT-3.5',
 ];
 
-export function FloatingTextInput() {
+type FloatingTextInputProps = {
+  onSend?: (message: string) => void;
+};
+
+export function FloatingTextInput({ onSend }: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [selectedModel, setSelectedModel] = useState('Sonnet 4.5');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -31,10 +36,13 @@ export function FloatingTextInput() {
   const menuOpen = Boolean(anchorEl);
 
   const handleSend = () => {
-    console.log('Send clicked:', inputValue);
-    setInputValue('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    if (inputValue.trim()) {
+      console.log('Send clicked:', inputValue);
+      onSend?.(inputValue);
+      setInputValue('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
     }
   };
 
