@@ -1,17 +1,24 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Menu from '@mui/material/Menu';
 import TextField from '@mui/material/TextField';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import TuneIcon from '@mui/icons-material/Tune';
+
+import { Iconify } from 'src/components/iconify';
+import { GOALS, getGoalIds } from './goals-data';
 
 // ----------------------------------------------------------------------
 
@@ -26,17 +33,67 @@ const models = [
 
 type FloatingTextInputProps = {
   onSend?: (message: string) => void;
+  onGoalSelect?: (goalId: string) => void;
 };
 
-export function FloatingTextInput({ onSend }: FloatingTextInputProps) {
+export function FloatingTextInput({ onSend, onGoalSelect }: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [selectedModel, setSelectedModel] = useState('Sonnet 4.5');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [goalMenuAnchor, setGoalMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuOpen = Boolean(anchorEl);
+  const goalMenuOpen = Boolean(goalMenuAnchor);
+
+  // Detect "g/" command
+  useEffect(() => {
+    if (inputValue.startsWith('g/')) {
+      // Open goal menu
+      if (textareaRef.current && !goalMenuOpen) {
+        setGoalMenuAnchor(textareaRef.current);
+      }
+
+      // Extract goal name after "g/"
+      const goalQuery = inputValue.slice(2).toLowerCase();
+
+      // Auto-select if exact match or partial match
+      const matchingGoal = getGoalIds().find(id => id.startsWith(goalQuery));
+      if (matchingGoal && goalQuery.length > 0) {
+        setSelectedGoalId(matchingGoal);
+      } else if (goalQuery.length === 0) {
+        setSelectedGoalId(getGoalIds()[0]); // Select first goal when just "g/"
+      }
+    } else {
+      // Close menu if "g/" is removed
+      if (goalMenuOpen) {
+        setGoalMenuAnchor(null);
+        setSelectedGoalId(null);
+      }
+    }
+  }, [inputValue, goalMenuOpen]);
 
   const handleSend = () => {
     if (inputValue.trim()) {
+      // Check if it's a goal command
+      if (inputValue.startsWith('g/')) {
+        const goalQuery = inputValue.slice(2).toLowerCase();
+        const goalId = selectedGoalId || getGoalIds().find(id => id === goalQuery);
+
+        if (goalId && onGoalSelect) {
+          console.log('Loading goal:', goalId);
+          onGoalSelect(goalId);
+          setInputValue('');
+          setGoalMenuAnchor(null);
+          setSelectedGoalId(null);
+          if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+          }
+          return;
+        }
+      }
+
+      // Regular message
       console.log('Send clicked:', inputValue);
       onSend?.(inputValue);
       setInputValue('');
@@ -50,6 +107,32 @@ export function FloatingTextInput({ onSend }: FloatingTextInputProps) {
     if (e.key === 'Enter' && !e.metaKey && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+
+    // Navigate goal menu with arrow keys
+    if (goalMenuOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const goalIds = getGoalIds();
+        const currentIndex = selectedGoalId ? goalIds.indexOf(selectedGoalId) : -1;
+
+        if (e.key === 'ArrowDown') {
+          const nextIndex = (currentIndex + 1) % goalIds.length;
+          setSelectedGoalId(goalIds[nextIndex]);
+          setInputValue(`g/${goalIds[nextIndex]}`);
+        } else {
+          const prevIndex = currentIndex <= 0 ? goalIds.length - 1 : currentIndex - 1;
+          setSelectedGoalId(goalIds[prevIndex]);
+          setInputValue(`g/${goalIds[prevIndex]}`);
+        }
+      }
+
+      // Escape to close menu
+      if (e.key === 'Escape') {
+        setGoalMenuAnchor(null);
+        setSelectedGoalId(null);
+        setInputValue('');
+      }
     }
   };
 
@@ -73,6 +156,24 @@ export function FloatingTextInput({ onSend }: FloatingTextInputProps) {
     handleMenuClose();
   };
 
+  const handleGoalMenuClose = () => {
+    setGoalMenuAnchor(null);
+    setSelectedGoalId(null);
+  };
+
+  const handleGoalSelect = (goalId: string) => {
+    setSelectedGoalId(goalId);
+    setInputValue(`g/${goalId}`);
+    handleGoalMenuClose();
+
+    // Immediately load the goal
+    if (onGoalSelect) {
+      console.log('Loading goal:', goalId);
+      onGoalSelect(goalId);
+      setInputValue('');
+    }
+  };
+
   return (
     <Box
       onClick={handleContainerClick}
@@ -91,7 +192,7 @@ export function FloatingTextInput({ onSend }: FloatingTextInputProps) {
         inputRef={textareaRef}
         multiline
         fullWidth
-        placeholder="Ask Anything..."
+        placeholder="Ask Anything... (type 'g/' for goals)"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -126,6 +227,66 @@ export function FloatingTextInput({ onSend }: FloatingTextInputProps) {
           },
         }}
       />
+
+      {/* Goal Selection Menu */}
+      <Menu
+        anchorEl={goalMenuAnchor}
+        open={goalMenuOpen}
+        onClose={handleGoalMenuClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: -1,
+              minWidth: 320,
+              maxWidth: 420,
+              borderRadius: '12px',
+              boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.15)',
+            },
+          },
+        }}
+      >
+        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #e0e0e0' }}>
+          <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+            Select a Goal
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Use arrow keys to navigate, Enter to select
+          </Typography>
+        </Box>
+
+        {getGoalIds().map((goalId) => {
+          const goal = GOALS[goalId];
+          return (
+            <MenuItem
+              key={goalId}
+              selected={goalId === selectedGoalId}
+              onClick={() => handleGoalSelect(goalId)}
+              sx={{
+                py: 1.5,
+                px: 2,
+                '&.Mui-selected': {
+                  bgcolor: 'primary.lighter',
+                  '&:hover': {
+                    bgcolor: 'primary.light',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon>
+                <Iconify icon={goal.icon || 'solar:target-bold'} width={28} />
+              </ListItemIcon>
+              <ListItemText
+                primary={goal.name}
+                secondary={goal.description}
+                primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9375rem' }}
+                secondaryTypographyProps={{ variant: 'caption', fontSize: '0.75rem' }}
+              />
+            </MenuItem>
+          );
+        })}
+      </Menu>
 
       {/* Bottom toolbar */}
       <Box

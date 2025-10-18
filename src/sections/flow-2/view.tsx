@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
@@ -11,6 +11,7 @@ import { ReactFlow, Background, addEdge, applyEdgeChanges, applyNodeChanges } fr
 
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
+import Chip from '@mui/material/Chip';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -23,86 +24,10 @@ import { NodeDialog } from './node-dialog';
 import { NodeContextDrawer } from './node-context-drawer';
 import { PathChatDrawer } from './path-chat-drawer';
 import { Stackable, AvatarCard } from './stackable-avatars';
+import { getLayoutedElements } from './dagre-layout';
+import { GOALS, DEFAULT_GOAL, type Goal } from './goals-data';
 
 // ----------------------------------------------------------------------
-
-const initialNodes: Node[] = [
-  {
-    id: '1',
-    type: 'hexagon',
-    position: { x: -145, y: -75.33 },
-    data: { label: 'Node 1', opacity: 1, actionType: 'dialog' }
-  },
-  {
-    id: '2',
-    type: 'hexagon',
-    position: { x: 429.80, y: -52.41 },
-    data: { label: 'Node 2', opacity: 1, actionType: 'drawer' }
-  },
-  {
-    id: '3',
-    type: 'hexagon',
-    position: { x: 200, y: 200 },
-    data: { label: 'Node 3', opacity: 1, actionType: 'dialog' }
-  },
-  {
-    id: '4',
-    type: 'glass',
-    position: { x: -200, y: 250 },
-    data: { label: 'Glass Node', opacity: 1, actionType: 'drawer' }
-  },
-];
-
-const initialEdges: Edge[] = [
-  {
-    id: 'e1-2',
-    source: '1',
-    target: '2',
-    sourceHandle: 'right',
-    targetHandle: 'left',
-    type: 'animated',
-    data: {
-      strokeColor: '#000000',
-      strokeWidth: 2,
-      animationDuration: 3,
-      animationBounce: 0.3,
-      animationDelay: 0,
-      reverseAnimation: false,
-      enableHoverAnimation: false,
-      hoverAnimationType: 'redraw',
-      hoverStrokeColor: '#4f46e5',
-      initialAnimation: true,
-      useStaticPath: false,
-      lineType: 'artistic',
-      curvature: 0.3,
-      edgePadding: 50,
-    },
-  },
-  {
-    id: 'e1-3',
-    source: '1',
-    target: '3',
-    sourceHandle: 'right',
-    targetHandle: 'left',
-    type: 'animated',
-    data: {
-      strokeColor: '#10b981',
-      strokeWidth: 2,
-      animationDuration: 2,
-      animationBounce: 0.3,
-      animationDelay: 0,
-      reverseAnimation: false,
-      enableHoverAnimation: false,
-      hoverAnimationType: 'redraw',
-      hoverStrokeColor: '#34d399',
-      initialAnimation: true,
-      useStaticPath: false,
-      lineType: 'artistic',
-      curvature: 0.3,
-      edgePadding: 50,
-    },
-  },
-];
 
 // ----------------------------------------------------------------------
 
@@ -111,8 +36,53 @@ type Props = {
 };
 
 export function FlowView({ sx }: Props) {
-  const [nodes, setNodes] = useState<Node[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
+  // Current goal state
+  const [currentGoal, setCurrentGoal] = useState<Goal>(DEFAULT_GOAL);
+  const [currentLayoutConfig, setCurrentLayoutConfig] = useState('organic');
+
+  // Apply Dagre layout to current goal
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(
+    () => getLayoutedElements(
+      currentGoal.nodes,
+      currentGoal.edges,
+      currentGoal.defaultConfig
+    ),
+    [currentGoal]
+  );
+
+  const [nodes, setNodes] = useState<Node[]>(layoutedNodes);
+  const [edges, setEdges] = useState<Edge[]>(layoutedEdges);
+
+  // Update nodes/edges when goal changes
+  useEffect(() => {
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+  }, [layoutedNodes, layoutedEdges]);
+
+  // Handle goal selection from text input
+  const handleGoalSelect = useCallback((goalId: string) => {
+    const goal = GOALS[goalId];
+    if (goal) {
+      console.log('Loading goal:', goal.name);
+      setCurrentGoal(goal);
+      setCurrentLayoutConfig('organic'); // Reset to default layout
+    }
+  }, []);
+
+  // Function to switch between layout configs
+  const switchLayout = useCallback((configName: string) => {
+    const config = currentGoal.layoutConfigs[configName];
+    if (config) {
+      const { nodes: newNodes, edges: newEdges } = getLayoutedElements(
+        currentGoal.nodes,
+        currentGoal.edges,
+        config
+      );
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setCurrentLayoutConfig(configName);
+    }
+  }, [currentGoal]);
 
   // State for NodeDialog
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
@@ -259,6 +229,85 @@ export function FlowView({ sx }: Props) {
         <Background variant="dots" gap={12} size={1} />
       </ReactFlow>
 
+      {/* Current Goal Indicator - Top Left */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          zIndex: 10,
+        }}
+      >
+        <Chip
+          icon={<Iconify icon={currentGoal.icon || 'solar:target-bold'} width={20} />}
+          label={currentGoal.name}
+          sx={{
+            bgcolor: 'background.paper',
+            boxShadow: 3,
+            fontWeight: 600,
+            fontSize: '0.875rem',
+            px: 1,
+            '& .MuiChip-icon': {
+              color: 'primary.main',
+            },
+          }}
+        />
+      </Box>
+
+      {/* Layout Switcher - Top Right */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          display: 'flex',
+          gap: 1,
+          flexDirection: 'column',
+        }}
+      >
+        <Fab
+          size="small"
+          onClick={() => switchLayout('organic')}
+          sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
+          title="Organic Layout"
+        >
+          <Iconify icon="mdi:waves" />
+        </Fab>
+        <Fab
+          size="small"
+          onClick={() => switchLayout('clean')}
+          sx={{ bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
+          title="Clean Layout"
+        >
+          <Iconify icon="mdi:align-horizontal-center" />
+        </Fab>
+        <Fab
+          size="small"
+          onClick={() => switchLayout('dramatic')}
+          sx={{ bgcolor: 'warning.main', '&:hover': { bgcolor: 'warning.dark' } }}
+          title="Dramatic Layout"
+        >
+          <Iconify icon="mdi:chart-timeline-variant" />
+        </Fab>
+        <Fab
+          size="small"
+          onClick={() => switchLayout('grouped')}
+          sx={{ bgcolor: 'info.main', '&:hover': { bgcolor: 'info.dark' } }}
+          title="Grouped Layout"
+        >
+          <Iconify icon="mdi:group" />
+        </Fab>
+        <Fab
+          size="small"
+          onClick={() => switchLayout('strict')}
+          sx={{ bgcolor: 'error.main', '&:hover': { bgcolor: 'error.dark' } }}
+          title="Strict Layout"
+        >
+          <Iconify icon="mdi:format-align-justify" />
+        </Fab>
+      </Box>
+
       {/* Liquid Glass Overlay - appears when avatars are expanded */}
       <LiquidGlassOverlay
         open={avatarStackOpen}
@@ -299,7 +348,10 @@ export function FlowView({ sx }: Props) {
 
         {/* Floating Text Input */}
         <Box sx={{ width: '100%' }}>
-          <FloatingTextInput onSend={handleSendMessage} />
+          <FloatingTextInput
+            onSend={handleSendMessage}
+            onGoalSelect={handleGoalSelect}
+          />
         </Box>
 
         {/* Stackable Avatar Component - Bottom Right */}

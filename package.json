@@ -27,6 +27,7 @@
   },
   "packageManager": "yarn@1.22.22",
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.5",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -68,6 +69,7 @@
     "@svgr/webpack": "^8.1.0",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/autosuggest-highlight": "^3.2.3",
+    "@types/dagre": "^0.7.53",
     "@types/node": "^24.2.0",
     "@types/nprogress": "^0.2.3",
     "@types/react": "^19.1.9",
