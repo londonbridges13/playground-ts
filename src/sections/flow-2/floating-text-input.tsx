@@ -34,9 +34,10 @@ const models = [
 type FloatingTextInputProps = {
   onSend?: (message: string) => void;
   onGoalSelect?: (goalId: string) => void;
+  currentGoalId?: string;
 };
 
-export function FloatingTextInput({ onSend, onGoalSelect }: FloatingTextInputProps) {
+export function FloatingTextInput({ onSend, onGoalSelect, currentGoalId }: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [selectedModel, setSelectedModel] = useState('Sonnet 4.5');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -86,9 +87,6 @@ export function FloatingTextInput({ onSend, onGoalSelect }: FloatingTextInputPro
           setInputValue('');
           setGoalMenuAnchor(null);
           setSelectedGoalId(null);
-          if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-          }
           return;
         }
       }
@@ -97,9 +95,6 @@ export function FloatingTextInput({ onSend, onGoalSelect }: FloatingTextInputPro
       console.log('Send clicked:', inputValue);
       onSend?.(inputValue);
       setInputValue('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
     }
   };
 
@@ -138,7 +133,8 @@ export function FloatingTextInput({ onSend, onGoalSelect }: FloatingTextInputPro
 
   const handleContainerClick = (e: React.MouseEvent) => {
     // Check if the click target is a button or inside a button
-    if (!(e.target as HTMLElement).closest('button')) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('button')) {
       textareaRef.current?.focus();
     }
   };
@@ -163,7 +159,6 @@ export function FloatingTextInput({ onSend, onGoalSelect }: FloatingTextInputPro
 
   const handleGoalSelect = (goalId: string) => {
     setSelectedGoalId(goalId);
-    setInputValue(`g/${goalId}`);
     handleGoalMenuClose();
 
     // Immediately load the goal
@@ -204,14 +199,19 @@ export function FloatingTextInput({ onSend, onGoalSelect }: FloatingTextInputPro
             color: '#374151',
             padding: 0,
             margin: 0,
+            minHeight: '32px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            flexWrap: 'wrap',
             '& textarea': {
               resize: 'none',
               overflow: 'hidden !important',
-              minHeight: '32px',
+              minHeight: '32px !important',
               maxHeight: '160px',
               padding: 0,
               margin: 0,
               lineHeight: 1.5,
+              flex: 1,
             },
             '& textarea::placeholder': {
               color: '#9ca3af',
