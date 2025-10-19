@@ -19,10 +19,12 @@ import { CustomAnimatedEdge } from './custom-edge';
 import { FloatingTextInput } from './floating-text-input';
 import { GlassNode } from './glass-node';
 import { HexagonNode } from './hexagon-node';
+import { AppStoreNode } from './appstore-node';
 import { LiquidGlassOverlay } from './liquid-glass-overlay';
 import { NodeDialog } from './node-dialog';
 import { NodeContextDrawer } from './node-context-drawer';
 import { PathChatDrawer } from './path-chat-drawer';
+import { AppStoreCardDialog } from './appstore-card-dialog';
 import { Stackable, AvatarCard } from './stackable-avatars';
 import { getLayoutedElements } from './dagre-layout';
 import { GOALS, DEFAULT_GOAL, type Goal } from './goals-data';
@@ -39,6 +41,7 @@ export function FlowView({ sx }: Props) {
   // Current goal state
   const [currentGoal, setCurrentGoal] = useState<Goal>(DEFAULT_GOAL);
   const [currentLayoutConfig, setCurrentLayoutConfig] = useState('organic');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Apply Dagre layout to current goal
   const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(
@@ -55,19 +58,61 @@ export function FlowView({ sx }: Props) {
 
   // Update nodes/edges when goal changes
   useEffect(() => {
-    setNodes(layoutedNodes);
-    setEdges(layoutedEdges);
-  }, [layoutedNodes, layoutedEdges]);
+    if (!isTransitioning) {
+      setNodes(layoutedNodes);
+      setEdges(layoutedEdges);
+    }
+  }, [layoutedNodes, layoutedEdges, isTransitioning]);
 
-  // Handle goal selection from text input
+  // Handle goal selection from text input with animation
   const handleGoalSelect = useCallback((goalId: string) => {
     const goal = GOALS[goalId];
     if (goal) {
       console.log('Loading goal:', goal.name);
-      setCurrentGoal(goal);
-      setCurrentLayoutConfig('organic'); // Reset to default layout
+      setIsTransitioning(true);
+
+      // Randomly choose exit animation type
+      const exitAnimationType = Math.random() > 0.5 ? 'slide' : 'shuffle';
+
+      // Calculate exit animation duration dynamically
+      // Max stagger delay (nodeIndex * 0.1) + animation duration
+      const nodeCount = currentGoal.nodes.length;
+      const maxStaggerDelay = (nodeCount - 1) * 0.1 * 1000; // Convert to ms
+      const animationDuration = exitAnimationType === 'shuffle' ? 800 : 600; // Shuffle is longer
+      const totalExitTime = maxStaggerDelay + animationDuration;
+
+      // Mark all current nodes and edges as exiting to trigger exit animation
+      setNodes(prevNodes =>
+        prevNodes.map(node => ({
+          ...node,
+          data: {
+            ...node.data,
+            isExiting: true,
+            exitAnimationType: exitAnimationType,
+            useLayoutId: false,  // Disable layoutId during goal transitions to prevent conflicts
+          }
+        }))
+      );
+
+      setEdges(prevEdges =>
+        prevEdges.map(edge => ({
+          ...edge,
+          data: {
+            ...edge.data,
+            isExiting: true,
+            exitAnimationType: exitAnimationType
+          }
+        }))
+      );
+
+      // Wait for exit animations to complete before switching goal
+      setTimeout(() => {
+        setCurrentGoal(goal);
+        setCurrentLayoutConfig('organic'); // Reset to default layout
+        setIsTransitioning(false);
+      }, totalExitTime);
     }
-  }, []);
+  }, [currentGoal]);
 
   // Function to switch between layout configs
   const switchLayout = useCallback((configName: string) => {
@@ -98,8 +143,16 @@ export function FlowView({ sx }: Props) {
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
   const [contextNode, setContextNode] = useState<Node | null>(null);
 
+  // State for AppStoreCardDialog
+  const [appStoreDialogOpen, setAppStoreDialogOpen] = useState(false);
+  const [appStoreNode, setAppStoreNode] = useState<Node | null>(null);
+
   // Define node types - memoized to prevent re-renders
-  const nodeTypes = useMemo(() => ({ hexagon: HexagonNode, glass: GlassNode }), []);
+  const nodeTypes = useMemo(() => ({
+    hexagon: HexagonNode,
+    glass: GlassNode,
+    appstore: AppStoreNode
+  }), []);
 
   // Define edge types - memoized to prevent re-renders
   const edgeTypes = useMemo(() => ({ animated: CustomAnimatedEdge }), []);
@@ -148,7 +201,40 @@ export function FlowView({ sx }: Props) {
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     const actionType = node.data?.actionType || 'dialog'; // Default to 'dialog'
 
-    if (actionType === 'drawer') {
+    if (actionType === 'appstore') {
+      // STEP 1: Enable layoutId on the clicked node FIRST
+      // This must happen before opening the dialog for the shared element transition to work
+      setNodes(prevNodes =>
+        prevNodes.map(n =>
+          n.id === node.id
+            ? { ...n, data: { ...n.data, useLayoutId: true } }
+            : n
+        )
+      );
+
+      // STEP 2: Small delay to ensure layoutId is applied before dialog opens
+      // This gives React a chance to re-render the node with layoutId
+      requestAnimationFrame(() => {
+        // Capture the node's position on screen for animation
+        const nodeElement = document.querySelector(`[data-id="${node.id}"]`);
+        const rect = nodeElement?.getBoundingClientRect();
+
+        // Store position data with the node
+        const nodeWithPosition = {
+          ...node,
+          data: { ...node.data, useLayoutId: true },  // Also set on the node passed to dialog
+          _screenPosition: rect ? {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+          } : null,
+        };
+
+        setAppStoreNode(nodeWithPosition as Node);
+        setAppStoreDialogOpen(true);
+      });
+    } else if (actionType === 'drawer') {
       // Open context drawer for nodes configured with actionType: 'drawer'
       setContextNode(node);
       setContextDrawerOpen(true);
@@ -171,6 +257,24 @@ export function FlowView({ sx }: Props) {
     setContextDrawerOpen(false);
     // Optional: Clear context node after animation completes
     setTimeout(() => setContextNode(null), 500);
+  }, []);
+
+  // Handle AppStore card dialog close
+  const handleCloseAppStoreDialog = useCallback(() => {
+    setAppStoreDialogOpen(false);
+
+    // STEP 3: Disable layoutId after dialog closes
+    // Wait for the exit animation to complete before removing layoutId
+    setTimeout(() => {
+      setNodes(prevNodes =>
+        prevNodes.map(n =>
+          n.data?.actionType === 'appstore'
+            ? { ...n, data: { ...n.data, useLayoutId: false } }
+            : n
+        )
+      );
+      setAppStoreNode(null);
+    }, 500);  // Match the exit animation duration
   }, []);
 
   // Handle chat drawer
@@ -351,6 +455,7 @@ export function FlowView({ sx }: Props) {
           <FloatingTextInput
             onSend={handleSendMessage}
             onGoalSelect={handleGoalSelect}
+            currentGoalId={currentGoal.id}
           />
         </Box>
 
@@ -404,6 +509,13 @@ export function FlowView({ sx }: Props) {
       <PathChatDrawer
         open={chatDrawerOpen}
         onClose={handleCloseChatDrawer}
+      />
+
+      {/* AppStoreCardDialog - App Store-style card expansion */}
+      <AppStoreCardDialog
+        open={appStoreDialogOpen}
+        node={appStoreNode}
+        onClose={handleCloseAppStoreDialog}
       />
     </>
   );

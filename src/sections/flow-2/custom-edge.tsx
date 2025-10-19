@@ -258,6 +258,8 @@ export const CustomAnimatedEdge = memo(({
   const hoverAnimationType: HoverAnimationType = data?.hoverAnimationType || 'redraw';
   const hoverStrokeColor = data?.hoverStrokeColor || '#4f46e5';
   const initialAnimation = data?.initialAnimation !== false;
+  const isExiting = data?.isExiting ?? false;
+  const exitAnimationType = data?.exitAnimationType ?? 'slide';
 
   // Path variants matching AnimateSvg
   const pathVariants: Variants = {
@@ -275,16 +277,32 @@ export const CustomAnimatedEdge = memo(({
           type: "spring",
           duration: animationDuration,
           bounce: animationBounce,
-          delay: animationDelay,
+          delay: animationDelay + 0.4,
         },
         pathOffset: {
           duration: animationDuration,
-          delay: animationDelay,
+          delay: animationDelay + 0.4,
         },
         opacity: {
           duration: animationDuration / 4,
-          delay: animationDelay,
+          delay: animationDelay + 0.4,
         },
+      },
+    },
+    exitingSlide: {
+      pathLength: 1,
+      opacity: 0,
+      transition: {
+        duration: 0.3,
+        ease: "easeOut",
+      },
+    },
+    exitingShuffle: {
+      pathLength: 1,
+      opacity: 0,
+      transition: {
+        duration: 0.3,
+        ease: "easeOut",
       },
     },
   };
@@ -395,7 +413,11 @@ export const CustomAnimatedEdge = memo(({
         style={style}
         transform={pathTransform}
         initial={initialAnimation ? "hidden" : "visible"}
-        animate={controls}
+        animate={
+          isExiting
+            ? (exitAnimationType === 'shuffle' ? "exitingShuffle" : "exitingSlide")
+            : controls
+        }
         variants={pathVariants}
       />
     </g>

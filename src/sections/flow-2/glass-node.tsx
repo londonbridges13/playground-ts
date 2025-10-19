@@ -1,28 +1,66 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
+import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
 export const GlassNode = memo(({ data, isConnectable, selected }: NodeProps) => {
   const nodeOpacity = data.opacity ?? 1;
+  const nodeIndex = data.index ?? 0;
+  const isExiting = data.isExiting ?? false;
+  const exitAnimationType = data.exitAnimationType ?? 'slide';
+
+  // Define exit animations
+  const exitAnimations = {
+    slide: {
+      opacity: 0,
+      scale: 0.5,
+      rotateY: 90,
+      x: 0,
+      rotateZ: 0,
+    },
+    shuffle: {
+      opacity: 0,
+      scale: 0.6,
+      x: (nodeIndex % 2 === 0 ? -1 : 1) * 400,
+      rotateZ: (nodeIndex % 2 === 0 ? -1 : 1) * 25,
+      y: Math.random() * 150 - 75,
+      rotateY: 0,
+    }
+  };
 
   return (
-    <Box
-      sx={{
-        position: 'relative',
-        width: 200,
-        height: 200,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        outline: selected ? '2px solid #1976d2' : 'none',
-        outlineOffset: 4,
-        opacity: nodeOpacity,
-        isolation: 'isolate',
+    <m.div
+      initial={{ opacity: 0, scale: 0.5, x: 0, rotateY: 0, rotateZ: 0 }}
+      animate={
+        isExiting
+          ? exitAnimations[exitAnimationType]
+          : { opacity: nodeOpacity, scale: 1, rotateY: 0, x: 0, rotateZ: 0 }
+      }
+      transition={{
+        duration: isExiting && exitAnimationType === 'shuffle' ? 0.8 : 0.6,
+        delay: nodeIndex * 0.1,
+        ease: isExiting && exitAnimationType === 'shuffle'
+          ? [0.6, 0.01, 0.05, 0.95]
+          : [0.34, 1.56, 0.64, 1],
       }}
+      style={{ width: '100%', height: '100%' }}
     >
+      <Box
+        sx={{
+          position: 'relative',
+          width: 200,
+          height: 200,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          outline: selected ? '2px solid #1976d2' : 'none',
+          outlineOffset: 4,
+          isolation: 'isolate',
+        }}
+      >
       {/* Glass effect container */}
       <Box
         sx={{
@@ -31,7 +69,7 @@ export const GlassNode = memo(({ data, isConnectable, selected }: NodeProps) => 
           borderRadius: '28px',
           isolation: 'isolate',
           boxShadow: '0px 6px 24px rgba(0, 0, 0, 0.2)',
-          
+
           // Inner shadow + tint layer
           '&::before': {
             content: '""',
@@ -42,7 +80,7 @@ export const GlassNode = memo(({ data, isConnectable, selected }: NodeProps) => 
             boxShadow: 'inset 0 0 20px -5px rgba(255, 255, 255, 0.7)',
             backgroundColor: 'rgba(255, 255, 255, 0.3)',
           },
-          
+
           // Backdrop blur + SVG distortion layer
           '&::after': {
             content: '""',
@@ -76,37 +114,37 @@ export const GlassNode = memo(({ data, isConnectable, selected }: NodeProps) => 
       </Typography>
 
       {/* SVG Filter Definition for Glass Distortion */}
-      <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width="0" 
-        height="0" 
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="0"
+        height="0"
         style={{ position: 'absolute', overflow: 'hidden' }}
       >
         <defs>
           <filter id="glass-node-distortion" x="0%" y="0%" width="100%" height="100%">
             {/* Generate fractal noise for organic distortion */}
-            <feTurbulence 
-              type="fractalNoise" 
+            <feTurbulence
+              type="fractalNoise"
               baseFrequency="0.008 0.008"
-              numOctaves="2" 
-              seed="92" 
-              result="noise" 
+              numOctaves="2"
+              seed="92"
+              result="noise"
             />
-            
+
             {/* Blur the noise for smoother liquid effect */}
-            <feGaussianBlur 
-              in="noise" 
-              stdDeviation="2" 
-              result="blurred" 
+            <feGaussianBlur
+              in="noise"
+              stdDeviation="2"
+              result="blurred"
             />
-            
+
             {/* Apply displacement to create liquid glass distortion */}
-            <feDisplacementMap 
-              in="SourceGraphic" 
-              in2="blurred" 
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="blurred"
               scale="77"
-              xChannelSelector="R" 
-              yChannelSelector="G" 
+              xChannelSelector="R"
+              yChannelSelector="G"
             />
           </filter>
         </defs>
@@ -140,6 +178,7 @@ export const GlassNode = memo(({ data, isConnectable, selected }: NodeProps) => 
         style={{ background: '#555', right: 30 }}
       />
     </Box>
+    </m.div>
   );
 });
 

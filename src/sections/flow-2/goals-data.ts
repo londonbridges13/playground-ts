@@ -116,6 +116,7 @@ const startupNodes: Node[] = [
       amount: '$0',
       stage: 'Pre-seed',
       importance: 10,
+      index: 0,
     }
   },
   {
@@ -130,6 +131,7 @@ const startupNodes: Node[] = [
       amount: '$50K',
       stage: 'Pre-seed',
       importance: 9,
+      index: 1,
     }
   },
   {
@@ -144,6 +146,7 @@ const startupNodes: Node[] = [
       amount: '$100K',
       stage: 'Pre-seed',
       importance: 8,
+      index: 2,
     }
   },
   {
@@ -158,6 +161,7 @@ const startupNodes: Node[] = [
       amount: '$250K',
       stage: 'Seed',
       importance: 10,
+      index: 3,
     }
   },
   {
@@ -172,6 +176,7 @@ const startupNodes: Node[] = [
       amount: '$500K',
       stage: 'Seed',
       importance: 7,
+      index: 4,
     }
   },
   {
@@ -186,6 +191,7 @@ const startupNodes: Node[] = [
       amount: '$750K',
       stage: 'Seed',
       importance: 9,
+      index: 5,
     }
   },
   {
@@ -200,6 +206,7 @@ const startupNodes: Node[] = [
       amount: '$1M',
       stage: 'Series A',
       importance: 10,
+      index: 6,
     }
   },
 ];
@@ -356,6 +363,7 @@ const marathonNodes: Node[] = [
       amount: 'Week 0',
       stage: 'Preparation',
       importance: 10,
+      index: 0,
     }
   },
   {
@@ -370,6 +378,7 @@ const marathonNodes: Node[] = [
       amount: 'Weeks 1-4',
       stage: 'Foundation',
       importance: 9,
+      index: 1,
     }
   },
   {
@@ -384,6 +393,7 @@ const marathonNodes: Node[] = [
       amount: 'Week 5',
       stage: 'Foundation',
       importance: 8,
+      index: 2,
     }
   },
   {
@@ -398,6 +408,7 @@ const marathonNodes: Node[] = [
       amount: 'Weeks 12-14',
       stage: 'Peak',
       importance: 10,
+      index: 3,
     }
   },
   {
@@ -412,6 +423,7 @@ const marathonNodes: Node[] = [
       amount: 'Weeks 15-16',
       stage: 'Recovery',
       importance: 8,
+      index: 4,
     }
   },
   {
@@ -426,6 +438,7 @@ const marathonNodes: Node[] = [
       amount: 'Week 16',
       stage: 'Achievement',
       importance: 10,
+      index: 5,
     }
   },
 ];
@@ -545,6 +558,7 @@ const appNodes: Node[] = [
       amount: 'Day 0',
       stage: 'Ideation',
       importance: 10,
+      index: 0,
     }
   },
   {
@@ -559,6 +573,7 @@ const appNodes: Node[] = [
       amount: 'Week 1',
       stage: 'Design',
       importance: 8,
+      index: 1,
     }
   },
   {
@@ -573,6 +588,7 @@ const appNodes: Node[] = [
       amount: 'Week 2',
       stage: 'Design',
       importance: 7,
+      index: 2,
     }
   },
   {
@@ -587,6 +603,7 @@ const appNodes: Node[] = [
       amount: 'Week 6',
       stage: 'Development',
       importance: 10,
+      index: 3,
     }
   },
   {
@@ -601,6 +618,7 @@ const appNodes: Node[] = [
       amount: 'Week 8',
       stage: 'Testing',
       importance: 9,
+      index: 4,
     }
   },
   {
@@ -615,6 +633,7 @@ const appNodes: Node[] = [
       amount: 'Week 12',
       stage: 'Launch',
       importance: 10,
+      index: 5,
     }
   },
 ];
@@ -724,6 +743,7 @@ const magazineNodes: Node[] = [
       amount: 'Week 0',
       stage: 'Planning',
       importance: 10,
+      index: 0,
     }
   },
   {
@@ -738,6 +758,7 @@ const magazineNodes: Node[] = [
       amount: 'Week 1',
       stage: 'Planning',
       importance: 9,
+      index: 1,
     }
   },
   {
@@ -752,6 +773,7 @@ const magazineNodes: Node[] = [
       amount: 'Week 2-3',
       stage: 'Team Building',
       importance: 8,
+      index: 2,
     }
   },
   {
@@ -766,6 +788,7 @@ const magazineNodes: Node[] = [
       amount: 'Week 4-6',
       stage: 'Production',
       importance: 10,
+      index: 3,
     }
   },
   {
@@ -780,6 +803,7 @@ const magazineNodes: Node[] = [
       amount: 'Week 7',
       stage: 'Production',
       importance: 8,
+      index: 4,
     }
   },
   {
@@ -794,6 +818,7 @@ const magazineNodes: Node[] = [
       amount: 'Week 8',
       stage: 'Launch',
       importance: 10,
+      index: 5,
     }
   },
 ];
@@ -953,6 +978,587 @@ export const GOALS: Record<string, Goal> = {
     layoutConfigs: createLayoutConfigs({
       'content-creation': { staggerMultiplier: 0.5 },
       'first-issue': { staggerMultiplier: 0.5 },
+    }),
+  },
+  appstore: {
+    id: 'appstore',
+    name: 'App Store Apps',
+    description: 'Showcase of app store-style cards',
+    icon: 'solar:widget-5-bold',
+    nodes: [
+      {
+        id: 'pizza-app',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Pizza Delivery',
+          category: 'Food & Drink',
+          actionType: 'appstore',
+          backgroundColor: '#814A0E',
+          imageUrl: '/assets/images/c.jpg',
+          pointOfInterest: 80,
+          opacity: 1,
+          index: 0,
+        }
+      },
+      {
+        id: 'fitness-app',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Fitness Tracker',
+          category: 'Health & Fitness',
+          actionType: 'appstore',
+          backgroundColor: '#5DBCD2',
+          imageUrl: '/assets/images/a.jpg',
+          pointOfInterest: 260,
+          opacity: 1,
+          index: 1,
+        }
+      },
+      {
+        id: 'music-app',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Music Studio',
+          category: 'Music',
+          actionType: 'appstore',
+          backgroundColor: '#CC555B',
+          imageUrl: '/assets/images/b.jpg',
+          pointOfInterest: 260,
+          opacity: 1,
+          index: 2,
+        }
+      },
+      {
+        id: 'photo-app',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Photo Editor',
+          category: 'Photo & Video',
+          actionType: 'appstore',
+          backgroundColor: '#FA6779',
+          imageUrl: '/assets/images/d.jpg',
+          pointOfInterest: 150,
+          opacity: 1,
+          index: 3,
+        }
+      },
+      {
+        id: 'travel-app',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Travel Guide',
+          category: 'Travel',
+          actionType: 'appstore',
+          backgroundColor: '#8F986D',
+          imageUrl: '/assets/images/g.jpg',
+          pointOfInterest: 200,
+          opacity: 1,
+          index: 4,
+        }
+      },
+    ],
+    edges: [
+      {
+        id: 'e1',
+        source: 'pizza-app',
+        target: 'fitness-app',
+        type: 'animated',
+        data: {
+          strokeColor: '#814A0E',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#A0522D',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e2',
+        source: 'fitness-app',
+        target: 'music-app',
+        type: 'animated',
+        data: {
+          strokeColor: '#5DBCD2',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0.3,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#7DD3E8',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e3',
+        source: 'music-app',
+        target: 'photo-app',
+        type: 'animated',
+        data: {
+          strokeColor: '#CC555B',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0.6,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#E67378',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e4',
+        source: 'photo-app',
+        target: 'travel-app',
+        type: 'animated',
+        data: {
+          strokeColor: '#FA6779',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0.9,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#FF8A99',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+    ],
+    defaultConfig: {
+      dagre: {
+        direction: 'LR',
+        nodeSpacing: 200,
+        rankSpacing: 350,
+        align: 'UL',
+      },
+      stagger: {
+        enabled: true,
+        baseAmount: 45,
+        strategies: [
+          { name: 'depth', weight: 0.5 },
+          { name: 'degree', weight: 0.3 },
+          { name: 'type', weight: 0.2 },
+        ],
+      },
+    },
+    layoutConfigs: {
+      organic: {
+        dagre: {
+          direction: 'LR',
+          nodeSpacing: 200,
+          rankSpacing: 350,
+          align: 'UL',
+        },
+        stagger: {
+          enabled: true,
+          baseAmount: 45,
+          strategies: [
+            { name: 'depth', weight: 0.5 },
+            { name: 'degree', weight: 0.3 },
+            { name: 'type', weight: 0.2 },
+          ],
+        },
+      },
+      clean: {
+        dagre: {
+          direction: 'LR',
+          nodeSpacing: 180,
+          rankSpacing: 320,
+        },
+        stagger: {
+          enabled: true,
+          baseAmount: 25,
+          strategies: [
+            { name: 'depth', weight: 0.7 },
+            { name: 'type', weight: 0.3 },
+          ],
+        },
+      },
+      dramatic: {
+        dagre: {
+          direction: 'LR',
+          nodeSpacing: 220,
+          rankSpacing: 380,
+        },
+        stagger: {
+          enabled: true,
+          baseAmount: 70,
+          strategies: [
+            { name: 'depth', weight: 0.4 },
+            { name: 'degree', weight: 0.3 },
+            { name: 'random', weight: 0.3 },
+          ],
+        },
+      },
+      grouped: {
+        dagre: {
+          direction: 'LR',
+          nodeSpacing: 190,
+          rankSpacing: 340,
+        },
+        stagger: {
+          enabled: true,
+          baseAmount: 55,
+          strategies: [
+            { name: 'sibling', weight: 0.6 },
+            { name: 'type', weight: 0.4 },
+          ],
+        },
+      },
+      strict: {
+        dagre: {
+          direction: 'LR',
+          nodeSpacing: 160,
+          rankSpacing: 300,
+        },
+        stagger: {
+          enabled: false,
+          baseAmount: 0,
+          strategies: [],
+        },
+      },
+    },
+  },
+  barista: {
+    id: 'barista',
+    name: 'Become a Master Barista',
+    description: 'Journey from coffee novice to master barista',
+    icon: 'solar:cup-hot-bold',
+    nodes: [
+      {
+        id: 'coffee-basics',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Coffee Basics',
+          category: 'Foundation',
+          actionType: 'appstore',
+          backgroundColor: '#814A0E',
+          imageUrl: '/assets/images/c.jpg',
+          pointOfInterest: 80,
+          opacity: 1,
+          index: 0,
+        }
+      },
+      {
+        id: 'espresso-mastery',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Espresso Mastery',
+          category: 'Core Skills',
+          actionType: 'appstore',
+          backgroundColor: '#282F49',
+          imageUrl: '/assets/images/h.jpg',
+          pointOfInterest: 60,
+          opacity: 1,
+          index: 1,
+        }
+      },
+      {
+        id: 'milk-steaming',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Milk Steaming',
+          category: 'Core Skills',
+          actionType: 'appstore',
+          backgroundColor: '#959684',
+          imageUrl: '/assets/images/f.jpg',
+          pointOfInterest: 120,
+          opacity: 1,
+          index: 2,
+        }
+      },
+      {
+        id: 'latte-art',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Latte Art',
+          category: 'Advanced',
+          actionType: 'appstore',
+          backgroundColor: '#FA6779',
+          imageUrl: '/assets/images/d.jpg',
+          pointOfInterest: 150,
+          opacity: 1,
+          index: 3,
+        }
+      },
+      {
+        id: 'bean-knowledge',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Bean Knowledge',
+          category: 'Theory',
+          actionType: 'appstore',
+          backgroundColor: '#AC7441',
+          imageUrl: '/assets/images/e.jpg',
+          pointOfInterest: 200,
+          opacity: 1,
+          index: 4,
+        }
+      },
+      {
+        id: 'brewing-methods',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Brewing Methods',
+          category: 'Advanced',
+          actionType: 'appstore',
+          backgroundColor: '#8F986D',
+          imageUrl: '/assets/images/g.jpg',
+          pointOfInterest: 200,
+          opacity: 1,
+          index: 5,
+        }
+      },
+      {
+        id: 'customer-service',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Customer Service',
+          category: 'Professional',
+          actionType: 'appstore',
+          backgroundColor: '#5DBCD2',
+          imageUrl: '/assets/images/a.jpg',
+          pointOfInterest: 260,
+          opacity: 1,
+          index: 6,
+        }
+      },
+      {
+        id: 'barista-certification',
+        type: 'appstore',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Certification',
+          category: 'Master Level',
+          actionType: 'appstore',
+          backgroundColor: '#CC555B',
+          imageUrl: '/assets/images/b.jpg',
+          pointOfInterest: 260,
+          opacity: 1,
+          index: 7,
+        }
+      },
+    ],
+    edges: [
+      {
+        id: 'e1',
+        source: 'coffee-basics',
+        target: 'espresso-mastery',
+        type: 'animated',
+        data: {
+          strokeColor: '#814A0E',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#A0522D',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e2',
+        source: 'coffee-basics',
+        target: 'bean-knowledge',
+        type: 'animated',
+        data: {
+          strokeColor: '#AC7441',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0.3,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#C88A5A',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e3',
+        source: 'espresso-mastery',
+        target: 'milk-steaming',
+        type: 'animated',
+        data: {
+          strokeColor: '#282F49',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0.6,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#3D4563',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e4',
+        source: 'milk-steaming',
+        target: 'latte-art',
+        type: 'animated',
+        data: {
+          strokeColor: '#959684',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 0.9,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#AFAC9D',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e5',
+        source: 'bean-knowledge',
+        target: 'brewing-methods',
+        type: 'animated',
+        data: {
+          strokeColor: '#8F986D',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 1.2,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#A8B086',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e6',
+        source: 'latte-art',
+        target: 'customer-service',
+        type: 'animated',
+        data: {
+          strokeColor: '#FA6779',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 1.5,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#FF8A99',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e7',
+        source: 'brewing-methods',
+        target: 'customer-service',
+        type: 'animated',
+        data: {
+          strokeColor: '#5DBCD2',
+          strokeWidth: 2,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 1.8,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#7DD3E8',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+      {
+        id: 'e8',
+        source: 'customer-service',
+        target: 'barista-certification',
+        type: 'animated',
+        data: {
+          strokeColor: '#CC555B',
+          strokeWidth: 3,
+          animationDuration: 2.5,
+          animationBounce: 0.3,
+          animationDelay: 2.1,
+          reverseAnimation: false,
+          enableHoverAnimation: true,
+          hoverAnimationType: 'redraw',
+          hoverStrokeColor: '#E67378',
+          initialAnimation: true,
+          useStaticPath: false,
+          lineType: 'artistic',
+          curvature: 0.3,
+          edgePadding: 50,
+        },
+      },
+    ],
+    defaultConfig: createLayoutConfigs({
+      'latte-art': { staggerMultiplier: 0.5 },
+      'barista-certification': { staggerMultiplier: 0.5 },
+    }).organic,
+    layoutConfigs: createLayoutConfigs({
+      'latte-art': { staggerMultiplier: 0.5 },
+      'barista-certification': { staggerMultiplier: 0.5 },
     }),
   },
 };
