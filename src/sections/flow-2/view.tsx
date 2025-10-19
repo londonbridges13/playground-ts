@@ -222,7 +222,11 @@ export function FlowView({ sx }: Props) {
         // Store position data with the node
         const nodeWithPosition = {
           ...node,
-          data: { ...node.data, useLayoutId: true },  // Also set on the node passed to dialog
+          data: {
+            ...node.data,
+            useLayoutId: true,
+            layoutTimestamp: Date.now()  // Add timestamp to create unique layoutId
+          },
           _screenPosition: rect ? {
             x: rect.left,
             y: rect.top,
@@ -513,6 +517,7 @@ export function FlowView({ sx }: Props) {
 
       {/* AppStoreCardDialog - App Store-style card expansion */}
       <AppStoreCardDialog
+        key={appStoreNode?.id}
         open={appStoreDialogOpen}
         node={appStoreNode}
         onClose={handleCloseAppStoreDialog}

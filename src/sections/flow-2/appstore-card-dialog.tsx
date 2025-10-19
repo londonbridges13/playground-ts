@@ -4,14 +4,10 @@ import { m, AnimatePresence, useMotionValue } from 'framer-motion';
 import type { Node } from '@xyflow/react';
 
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-
-import { Iconify } from 'src/components/iconify';
 
 import { CardImage } from './appstore-card/card-image';
 import { CardTitle } from './appstore-card/card-title';
 import { CardContent } from './appstore-card/card-content';
-import { useInvertedBorderRadius } from './appstore-card/use-inverted-border-radius';
 import { useScrollConstraints } from './appstore-card/use-scroll-constraints';
 import { useWheelScroll } from './appstore-card/use-wheel-scroll';
 import { openSpring, closeSpring } from './appstore-card/animations';
@@ -30,7 +26,6 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
   const y = useMotionValue(0);
   const zIndex = useMotionValue(open ? 2 : 0);
 
-  const inverted = useInvertedBorderRadius(20);
   const cardRef = useRef<HTMLDivElement>(null);
   const constraints = useScrollConstraints(cardRef, open);
 
@@ -58,10 +53,10 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
   }, [y, onClose]);
 
   // Handle z-index updates
-  const checkZIndex = useCallback((latest: any) => {
+  const checkZIndex = useCallback(() => {
     if (open) {
       zIndex.set(2);
-    } else if (!open && latest.scaleX < 1.01) {
+    } else {
       zIndex.set(0);
     }
   }, [open, zIndex]);
@@ -136,7 +131,7 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
           >
             <m.div
               ref={cardRef}
-              layoutId={`appstore-card-${node.id}`}
+              layoutId={`appstore-card-${node.id}-${node.data?.layoutTimestamp}`}
               initial={screenPosition ? {
                 x: initialX,
                 y: initialY,
@@ -170,9 +165,7 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.2}
               onDrag={checkSwipeToDismiss}
-              onUpdate={checkZIndex}
               style={{
-                ...inverted,
                 y,
                 zIndex,
                 maxWidth: '600px',
@@ -185,24 +178,6 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
                 position: 'relative',
               }}
             >
-              {/* Close Button */}
-              <IconButton
-                onClick={onClose}
-                sx={{
-                  position: 'absolute',
-                  top: 16,
-                  right: 16,
-                  zIndex: 10,
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(8px)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 1)',
-                  },
-                }}
-              >
-                <Iconify icon="mingcute:close-line" width={24} />
-              </IconButton>
-
               {/* Scrollable Content */}
               <Box
                 sx={{

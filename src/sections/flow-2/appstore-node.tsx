@@ -38,7 +38,7 @@ export const AppStoreNode = memo(({ data, isConnectable, selected }: NodeProps) 
 
   return (
     <m.div
-      layoutId={shouldUseLayoutId ? `appstore-card-${data.id}` : undefined}
+      layoutId={shouldUseLayoutId ? `appstore-card-${data.id}-${data.layoutTimestamp}` : undefined}
       initial={{ opacity: 0, scale: 0.4, x: 0, rotate: 0 }}
       animate={
         isExiting
