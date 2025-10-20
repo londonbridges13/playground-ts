@@ -8,7 +8,7 @@ import '@xyflow/react/dist/style.css';
 import type { Theme, SxProps } from '@mui/material/styles';
 import type { Connection, Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 
-import { ReactFlow, Background, addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
+import { ReactFlow, Background, addEdge, applyEdgeChanges, applyNodeChanges, ReactFlowProvider, useReactFlow } from '@xyflow/react';
 
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
@@ -38,7 +38,8 @@ type Props = {
   sx?: SxProps<Theme>;
 };
 
-export function FlowView({ sx }: Props) {
+function FlowViewInner({ sx }: Props) {
+  const { screenToFlowPosition } = useReactFlow();
   // Current goal state
   const [currentGoal, setCurrentGoal] = useState<Goal>(DEFAULT_GOAL);
   const [currentLayoutConfig, setCurrentLayoutConfig] = useState('organic');
@@ -315,6 +316,47 @@ export function FlowView({ sx }: Props) {
     setChatDrawerOpen(false);
   }, []);
 
+  // Handle drag over - required to allow drop
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  // Handle drop on canvas
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      // Get the node data from the drag event
+      const data = event.dataTransfer.getData('application/reactflow');
+      if (!data) return;
+
+      const nodeData = JSON.parse(data);
+
+      // Convert screen position to flow position
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // Create new node
+      const newNode: Node = {
+        id: `node-${Date.now()}`, // Generate unique ID
+        type: nodeData.type,
+        position,
+        data: {
+          label: nodeData.label,
+          opacity: 1,
+          index: nodes.length, // For animation stagger
+        },
+      };
+
+      // Add node to the flow
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [screenToFlowPosition, nodes.length]
+  );
+
   const renderContent = () => (
     <Box
       sx={[
@@ -338,6 +380,8 @@ export function FlowView({ sx }: Props) {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         panOnScroll
         panOnScrollMode="free"
         panOnScrollSpeed={1.3}
@@ -568,6 +612,15 @@ export function FlowView({ sx }: Props) {
         onClose={handleCloseChatDrawer}
       />
     </>
+  );
+}
+
+// Wrapper component with ReactFlowProvider
+export function FlowView(props: Props) {
+  return (
+    <ReactFlowProvider>
+      <FlowViewInner {...props} />
+    </ReactFlowProvider>
   );
 }
 

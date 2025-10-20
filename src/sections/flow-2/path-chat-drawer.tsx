@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 
 import { m } from 'motion/react';
 import { varAlpha } from 'minimal-shared/utils';
@@ -42,6 +42,244 @@ interface Message {
 
 // ----------------------------------------------------------------------
 
+// Standalone Hexagon Component (no React Flow dependencies)
+const StandaloneHexagon = ({
+  label,
+  onDragStart: onDragStartCallback,
+  onDragEnd: onDragEndCallback,
+}: {
+  label: string;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onDragStart = (event: React.DragEvent) => {
+    setIsDragging(true);
+    // Store node data in the drag event
+    event.dataTransfer.setData(
+      'application/reactflow',
+      JSON.stringify({
+        type: 'hexagon',
+        label: label,
+      })
+    );
+    event.dataTransfer.effectAllowed = 'move';
+
+    // Call parent's drag start handler
+    onDragStartCallback?.();
+  };
+
+  const onDragEnd = () => {
+    setIsDragging(false);
+
+    // Call parent's drag end handler
+    onDragEndCallback?.();
+  };
+
+  return (
+    <Box
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      sx={{
+        position: 'relative',
+        width: 178,
+        height: 174,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        filter: 'drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.2))',
+        cursor: 'grab',
+        opacity: isDragging ? 0.5 : 1,
+        transition: 'opacity 0.2s',
+        '&:active': {
+          cursor: 'grabbing',
+        },
+      }}
+    >
+    {/* SVG with rounded hexagon */}
+    <svg
+      width="178"
+      height="174"
+      viewBox="0 0 178 174"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        pointerEvents: 'none',
+      }}
+    >
+      <defs>
+        <filter id="round-standalone">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+          <feColorMatrix
+            in="blur"
+            mode="matrix"
+            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+            result="goo"
+          />
+          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+        </filter>
+      </defs>
+
+      {/* Hexagon fill */}
+      <path
+        fill="#d0d0d0"
+        d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
+        filter="url(#round-standalone)"
+      />
+
+      {/* Hexagon border */}
+      <path
+        fill="none"
+        stroke="white"
+        strokeWidth="4"
+        strokeOpacity="1.0"
+        d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
+        filter="url(#round-standalone)"
+      />
+    </svg>
+
+    {/* Content */}
+    <Typography
+      variant="body2"
+      sx={{
+        position: 'relative',
+        zIndex: 1,
+        textAlign: 'center',
+        px: 2,
+        fontWeight: 500,
+      }}
+    >
+      {label}
+    </Typography>
+  </Box>
+  );
+};
+
+// ----------------------------------------------------------------------
+
+// Smaller version for search results
+const MiniHexagon = ({
+  label,
+  onDragStart: onDragStartCallback,
+  onDragEnd: onDragEndCallback,
+}: {
+  label: string;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onDragStart = (event: React.DragEvent) => {
+    setIsDragging(true);
+    event.dataTransfer.setData(
+      'application/reactflow',
+      JSON.stringify({
+        type: 'hexagon',
+        label: label,
+      })
+    );
+    event.dataTransfer.effectAllowed = 'move';
+    // Prevent card click event
+    event.stopPropagation();
+
+    // Call parent's drag start handler
+    onDragStartCallback?.();
+  };
+
+  const onDragEnd = () => {
+    setIsDragging(false);
+
+    // Call parent's drag end handler
+    onDragEndCallback?.();
+  };
+
+  return (
+    <Box
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={(e) => e.stopPropagation()}
+      sx={{
+        position: 'relative',
+        width: 60,
+        height: 58,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))',
+        cursor: 'grab',
+        opacity: isDragging ? 0.5 : 1,
+        transition: 'opacity 0.2s',
+        flexShrink: 0,
+        '&:active': {
+          cursor: 'grabbing',
+        },
+      }}
+    >
+      {/* SVG with rounded hexagon */}
+      <svg
+        width="60"
+        height="58"
+        viewBox="0 0 178 174"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        <defs>
+          <filter id="round-mini">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+              result="goo"
+            />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          </filter>
+        </defs>
+
+        {/* Hexagon fill */}
+        <path
+          fill="#d0d0d0"
+          d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
+          filter="url(#round-mini)"
+        />
+
+        {/* Hexagon border */}
+        <path
+          fill="none"
+          stroke="white"
+          strokeWidth="4"
+          strokeOpacity="1.0"
+          d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
+          filter="url(#round-mini)"
+        />
+      </svg>
+
+      {/* Icon instead of text for smaller size */}
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Iconify icon="solar:add-circle-bold" width={20} />
+      </Box>
+    </Box>
+  );
+};
+
+// ----------------------------------------------------------------------
+
 export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'search'>('chat');
   const [messages, setMessages] = useState<Message[]>([
@@ -55,6 +293,9 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const dragTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -115,11 +356,54 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
     }
   };
 
+  // Start timer on drag start
+  const handleDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+    console.log('Drag started - drawer will close in 0.5s');
+
+    // Start 0.5s timer to close drawer
+    dragTimerRef.current = setTimeout(() => {
+      console.log('Closing drawer after 0.5s');
+      onClose();
+      dragTimerRef.current = null;
+    }, 500);
+  }, [onClose]);
+
+  // Clear timer on drag end
+  const handleDragEnd = useCallback(() => {
+    isDraggingRef.current = false;
+    console.log('Drag ended');
+
+    // Clear timer if drag ended before 0.5s
+    if (dragTimerRef.current) {
+      console.log('Clearing timer (drag ended early)');
+      clearTimeout(dragTimerRef.current);
+      dragTimerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (dragTimerRef.current) {
+        clearTimeout(dragTimerRef.current);
+      }
+    };
+  }, []);
+
   // Search Result Card Component
-  const SearchResultCard = ({ title, description, tags }: {
+  const SearchResultCard = ({
+    title,
+    description,
+    tags,
+    onHexDragStart,
+    onHexDragEnd,
+  }: {
     title: string;
     description: string;
     tags: string[];
+    onHexDragStart?: () => void;
+    onHexDragEnd?: () => void;
   }) => (
     <Card
       sx={{
@@ -140,17 +424,33 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
           },
         }}
       >
-        {/* Title */}
-        <Typography
-          variant="h6"
+        {/* Title with Mini Hexagon */}
+        <Box
           sx={{
-            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
             mb: 1,
-            fontSize: '1rem',
           }}
         >
-          {title}
-        </Typography>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              fontSize: '1rem',
+              flex: 1,
+            }}
+          >
+            {title}
+          </Typography>
+
+          {/* Mini Draggable Hexagon */}
+          <MiniHexagon
+            label={title}
+            onDragStart={onHexDragStart}
+            onDragEnd={onHexDragEnd}
+          />
+        </Box>
 
         {/* Description */}
         <Typography
@@ -259,13 +559,50 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
         flexDirection: 'column',
       }}
     >
+      {/* Header Card with Hex Node */}
+      <Card
+        sx={{
+          mx: 3,
+          mt: 3,
+          mb: 2,
+          overflow: 'visible',
+        }}
+      >
+        <CardContent
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            py: 3,
+            '&:last-child': {
+              paddingBottom: '24px !important',
+            },
+          }}
+        >
+          {/* Centered Hex Node */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <StandaloneHexagon
+              label="Current Goal"
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            />
+          </Box>
+        </CardContent>
+      </Card>
+
       {/* Messages Container */}
       <Box
         sx={{
           flex: 1,
           overflowY: 'auto',
           px: 3,
-          py: 3,
+          py: 0,
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -381,7 +718,7 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
             maxRows={4}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Type your message..."
             variant="outlined"
             size="small"
@@ -486,7 +823,12 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
           }}
         >
           {searchResults.map((result) => (
-            <SearchResultCard key={result.id} {...result} />
+            <SearchResultCard
+              key={result.id}
+              {...result}
+              onHexDragStart={handleDragStart}
+              onHexDragEnd={handleDragEnd}
+            />
           ))}
         </Box>
       </Box>
@@ -530,6 +872,7 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
       }}
     >
       <m.div
+        ref={drawerRef}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 20 }}
