@@ -17,14 +17,30 @@ import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import Avatar from '@mui/material/Avatar';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 
 import CloseIcon from '@mui/icons-material/Close';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import SearchIcon from '@mui/icons-material/Search';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import AddIcon from '@mui/icons-material/Add';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import TuneIcon from '@mui/icons-material/Tune';
 
 import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
+
+const models = [
+  'Sonnet 4.5',
+  'Sonnet 4',
+  'Opus 4',
+  'Haiku 4',
+  'GPT-4',
+  'GPT-3.5',
+];
 
 type PathChatDrawerProps = {
   open: boolean;
@@ -174,25 +190,34 @@ const MiniHexagon = ({
 
   const onDragStart = (event: React.DragEvent) => {
     setIsDragging(true);
+
+    const dragData = {
+      type: 'hexagon',
+      label: label,
+    };
+
+    console.log('🔷 [MiniHexagon] Drag start:', dragData);
+
     event.dataTransfer.setData(
       'application/reactflow',
-      JSON.stringify({
-        type: 'hexagon',
-        label: label,
-      })
+      JSON.stringify(dragData)
     );
     event.dataTransfer.effectAllowed = 'move';
+
     // Prevent card click event
     event.stopPropagation();
 
     // Call parent's drag start handler
+    console.log('🔷 [MiniHexagon] Calling parent onDragStart callback');
     onDragStartCallback?.();
   };
 
   const onDragEnd = () => {
     setIsDragging(false);
+    console.log('🔷 [MiniHexagon] Drag end for:', label);
 
     // Call parent's drag end handler
+    console.log('🔷 [MiniHexagon] Calling parent onDragEnd callback');
     onDragEndCallback?.();
   };
 
@@ -292,10 +317,13 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('Sonnet 4.5');
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dragTimerRef = useRef<NodeJS.Timeout | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+  const menuOpen = Boolean(anchorEl);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -356,27 +384,41 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
     }
   };
 
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleModelSelect = (model: string) => {
+    setSelectedModel(model);
+    handleMenuClose();
+  };
+
   // Start timer on drag start
   const handleDragStart = useCallback(() => {
     isDraggingRef.current = true;
-    console.log('Drag started - drawer will close in 0.5s');
+    console.log('🎯 [Hexagon Drag] Started - drawer will close in 0.5s');
+    console.log('🎯 [Hexagon Drag] Active tab:', activeTab);
 
     // Start 0.5s timer to close drawer
     dragTimerRef.current = setTimeout(() => {
-      console.log('Closing drawer after 0.5s');
+      console.log('✅ [Hexagon Drag] 0.5s elapsed - closing drawer now');
       onClose();
       dragTimerRef.current = null;
     }, 500);
-  }, [onClose]);
+  }, [onClose, activeTab]);
 
   // Clear timer on drag end
   const handleDragEnd = useCallback(() => {
     isDraggingRef.current = false;
-    console.log('Drag ended');
+    console.log('🏁 [Hexagon Drag] Ended');
 
     // Clear timer if drag ended before 0.5s
     if (dragTimerRef.current) {
-      console.log('Clearing timer (drag ended early)');
+      console.log('⏹️ [Hexagon Drag] Clearing timer (drag ended early)');
       clearTimeout(dragTimerRef.current);
       dragTimerRef.current = null;
     }
@@ -711,43 +753,204 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
           py: 2,
         }}
       >
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+        {/* Text Input Container */}
+        <Box
+          sx={{
+            bgcolor: 'white',
+            borderRadius: '16px',
+            border: '1px solid #e0e0e0',
+            p: 1.5,
+            boxShadow: '0px 10px 20px 0px rgba(44, 42, 202, 0.2), 0px 5px 8px 0px rgba(218, 152, 235, 0.1)',
+          }}
+        >
+          {/* TextField */}
           <TextField
             fullWidth
             multiline
-            maxRows={4}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Type your message..."
-            variant="outlined"
-            size="small"
+            variant="standard"
+            InputProps={{
+              disableUnderline: true,
+              sx: {
+                fontSize: '1.125rem',
+                color: '#374151',
+                padding: 0,
+                margin: 0,
+                minHeight: '32px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                flexWrap: 'wrap',
+                '& textarea': {
+                  resize: 'none',
+                  overflow: 'hidden !important',
+                  minHeight: '32px !important',
+                  maxHeight: '160px',
+                  padding: 0,
+                  margin: 0,
+                  lineHeight: 1.5,
+                  flex: 1,
+                },
+                '& textarea::placeholder': {
+                  color: '#9ca3af',
+                  opacity: 1,
+                },
+              },
+            }}
             sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
+              mb: 0.5,
+              '& .MuiInputBase-root': {
+                padding: 0,
+                margin: 0,
               },
             }}
           />
-          <IconButton
-            onClick={handleSend}
-            disabled={!input.trim()}
-            color="primary"
+
+          {/* Bottom toolbar */}
+          <Box
             sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
-              width: 40,
-              height: 40,
-              '&:hover': {
-                bgcolor: 'primary.dark',
-              },
-              '&.Mui-disabled': {
-                bgcolor: 'action.disabledBackground',
-                color: 'action.disabled',
-              },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            <Iconify icon="custom:send-fill" width={20} />
-          </IconButton>
+            {/* Left side buttons */}
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton
+                size="small"
+                sx={{
+                  p: 1,
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  '&:hover': {
+                    bgcolor: '#f5f5f5',
+                  },
+                }}
+                aria-label="Add"
+              >
+                <AddIcon sx={{ fontSize: 18, color: '#374151' }} />
+              </IconButton>
+
+              <IconButton
+                size="small"
+                sx={{
+                  p: 1,
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  '&:hover': {
+                    bgcolor: '#f5f5f5',
+                  },
+                }}
+                aria-label="Settings"
+              >
+                <TuneIcon sx={{ fontSize: 18, color: '#374151' }} />
+              </IconButton>
+
+              <IconButton
+                size="small"
+                sx={{
+                  p: 1,
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  '&:hover': {
+                    bgcolor: '#f5f5f5',
+                  },
+                }}
+                aria-label="Schedule"
+              >
+                <AccessTimeIcon sx={{ fontSize: 18, color: '#374151' }} />
+              </IconButton>
+            </Box>
+
+            {/* Right side - model selector and send button */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton
+                size="small"
+                onClick={handleMenuOpen}
+                sx={{
+                  px: 1.5,
+                  py: 0.75,
+                  color: '#374151',
+                  borderRadius: '8px',
+                  '&:hover': {
+                    bgcolor: '#f5f5f5',
+                  },
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
+                aria-label="Select model"
+              >
+                <Box component="span" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>
+                  {selectedModel}
+                </Box>
+                <KeyboardArrowDownIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+
+              <Menu
+                anchorEl={anchorEl}
+                open={menuOpen}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                slotProps={{
+                  paper: {
+                    sx: {
+                      mt: -1,
+                      minWidth: 160,
+                      borderRadius: '12px',
+                      boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+                    },
+                  },
+                }}
+              >
+                {models.map((model) => (
+                  <MenuItem
+                    key={model}
+                    selected={model === selectedModel}
+                    onClick={() => handleModelSelect(model)}
+                    sx={{
+                      fontSize: '0.8125rem',
+                      py: 0.75,
+                      px: 1.5,
+                      minHeight: 'auto',
+                    }}
+                  >
+                    {model}
+                  </MenuItem>
+                ))}
+              </Menu>
+
+              <IconButton
+                size="small"
+                onClick={handleSend}
+                disabled={!input.trim()}
+                sx={{
+                  bgcolor: '#fdba74',
+                  borderRadius: '8px',
+                  p: 1,
+                  '&:hover': {
+                    bgcolor: '#fb923c',
+                  },
+                  '&.Mui-disabled': {
+                    bgcolor: '#e5e7eb',
+                    color: '#9ca3af',
+                  },
+                }}
+                aria-label="Send message"
+              >
+                <ArrowUpwardIcon sx={{ fontSize: 20, color: 'white' }} />
+              </IconButton>
+            </Box>
+          </Box>
         </Box>
       </Box>
     </Box>
