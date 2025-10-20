@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 import '@xyflow/react/dist/style.css';
 
@@ -129,9 +130,18 @@ export function FlowView({ sx }: Props) {
     }
   }, [currentGoal]);
 
-  // State for NodeDialog
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Query parameter routing for dialogs
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Get dialog state from URL query parameters
+  const dialogNodeId = searchParams.get('dialog');
+  const dialogType = searchParams.get('type');
+
+  // Local state to control dialog open props for smooth exit animations
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAppStoreOpen, setIsAppStoreOpen] = useState(false);
 
   // State for avatar stack blur effect
   const [avatarStackOpen, setAvatarStackOpen] = useState(false);
@@ -139,13 +149,23 @@ export function FlowView({ sx }: Props) {
   // State for PathChatDrawer
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
 
-  // State for NodeContextDrawer
-  const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
-  const [contextNode, setContextNode] = useState<Node | null>(null);
+  // Sync local state with URL parameters for smooth animations
+  useEffect(() => {
+    if (dialogNodeId && dialogType === 'dialog') {
+      setIsDialogOpen(true);
+    } else if (dialogNodeId && dialogType === 'drawer') {
+      setIsDrawerOpen(true);
+    } else if (dialogNodeId && dialogType === 'appstore') {
+      setIsAppStoreOpen(true);
+    }
 
-  // State for AppStoreCardDialog
-  const [appStoreDialogOpen, setAppStoreDialogOpen] = useState(false);
-  const [appStoreNode, setAppStoreNode] = useState<Node | null>(null);
+    // Reset all dialog states when URL has no dialog parameter
+    if (!dialogNodeId) {
+      setIsDialogOpen(false);
+      setIsDrawerOpen(false);
+      setIsAppStoreOpen(false);
+    }
+  }, [dialogNodeId, dialogType]);
 
   // Define node types - memoized to prevent re-renders
   const nodeTypes = useMemo(() => ({
@@ -197,78 +217,83 @@ export function FlowView({ sx }: Props) {
     []
   );
 
-  // Handle node click - route to dialog or drawer based on node data
+  // Handle node click - update URL query parameters based on node data
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     const actionType = node.data?.actionType || 'dialog'; // Default to 'dialog'
 
     if (actionType === 'appstore') {
-      // STEP 1: Enable layoutId on the clicked node FIRST
+      // STEP 1: Capture the screen position of the node element for morphing animation
+      const nodeElement = document.querySelector(`[data-id="${node.id}"]`);
+      const rect = nodeElement?.getBoundingClientRect();
+      const screenPosition = rect ? {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      } : null;
+
+      // STEP 2: Enable layoutId and store screen position on the clicked node
       // This must happen before opening the dialog for the shared element transition to work
       setNodes(prevNodes =>
         prevNodes.map(n =>
           n.id === node.id
-            ? { ...n, data: { ...n.data, useLayoutId: true } }
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  useLayoutId: true,
+                  layoutTimestamp: Date.now()
+                },
+                _screenPosition: screenPosition
+              }
             : n
         )
       );
 
-      // STEP 2: Small delay to ensure layoutId is applied before dialog opens
+      // STEP 3: Small delay to ensure layoutId is applied before dialog opens
       // This gives React a chance to re-render the node with layoutId
       requestAnimationFrame(() => {
-        // Capture the node's position on screen for animation
-        const nodeElement = document.querySelector(`[data-id="${node.id}"]`);
-        const rect = nodeElement?.getBoundingClientRect();
-
-        // Store position data with the node
-        const nodeWithPosition = {
-          ...node,
-          data: {
-            ...node.data,
-            useLayoutId: true,
-            layoutTimestamp: Date.now()  // Add timestamp to create unique layoutId
-          },
-          _screenPosition: rect ? {
-            x: rect.left,
-            y: rect.top,
-            width: rect.width,
-            height: rect.height,
-          } : null,
-        };
-
-        setAppStoreNode(nodeWithPosition as Node);
-        setAppStoreDialogOpen(true);
+        // Navigate using query parameters
+        const params = new URLSearchParams(searchParams);
+        params.set('dialog', node.id);
+        params.set('type', 'appstore');
+        router.push(`?${params.toString()}`, { scroll: false });
       });
-    } else if (actionType === 'drawer') {
-      // Open context drawer for nodes configured with actionType: 'drawer'
-      setContextNode(node);
-      setContextDrawerOpen(true);
     } else {
-      // Open radial dialog for nodes configured with actionType: 'dialog' (or default)
-      setSelectedNode(node);
-      setDialogOpen(true);
+      // Navigate using query parameters for drawer and dialog
+      const params = new URLSearchParams(searchParams);
+      params.set('dialog', node.id);
+      params.set('type', actionType);
+      router.push(`?${params.toString()}`, { scroll: false });
     }
-  }, []);
+  }, [searchParams, router]);
 
-  // Handle dialog close
+  // Handle dialog close - trigger exit animation, then navigate
   const handleCloseDialog = useCallback(() => {
-    setDialogOpen(false);
-    // Optional: Clear selected node after animation completes
-    setTimeout(() => setSelectedNode(null), 500);
-  }, []);
+    setIsDialogOpen(false);  // Trigger exit animation
+    setTimeout(() => {
+      router.back();  // Navigate after animation completes
+    }, 300);  // Match NodeDialog exit animation duration
+  }, [router]);
 
-  // Handle context drawer close
+  // Handle context drawer close - trigger exit animation, then navigate
   const handleCloseContextDrawer = useCallback(() => {
-    setContextDrawerOpen(false);
-    // Optional: Clear context node after animation completes
-    setTimeout(() => setContextNode(null), 500);
-  }, []);
+    setIsDrawerOpen(false);  // Trigger exit animation
+    setTimeout(() => {
+      router.back();  // Navigate after animation completes
+    }, 300);  // Match Drawer exit animation duration
+  }, [router]);
 
-  // Handle AppStore card dialog close
+  // Handle AppStore card dialog close - trigger exit animation, then navigate
   const handleCloseAppStoreDialog = useCallback(() => {
-    setAppStoreDialogOpen(false);
+    setIsAppStoreOpen(false);  // Trigger exit animation
 
-    // STEP 3: Disable layoutId after dialog closes
-    // Wait for the exit animation to complete before removing layoutId
+    setTimeout(() => {
+      router.back();  // Navigate after animation completes
+    }, 500);  // Match the closeSpring animation duration
+
+    // STEP 3: Disable layoutId after exit animation completes
+    // This runs in parallel with router.back(), not nested
     setTimeout(() => {
       setNodes(prevNodes =>
         prevNodes.map(n =>
@@ -277,9 +302,8 @@ export function FlowView({ sx }: Props) {
             : n
         )
       );
-      setAppStoreNode(null);
-    }, 500);  // Match the exit animation duration
-  }, []);
+    }, 500);  // Same timing as router.back() to ensure layoutId stays active during animation
+  }, [router]);
 
   // Handle chat drawer
   const handleSendMessage = useCallback((message: string) => {
@@ -447,8 +471,10 @@ export function FlowView({ sx }: Props) {
             zIndex: 11,
           }}
           onClick={() => {
-            setSelectedNode({ id: 'fab-button', data: { label: 'Radial Timeline' } } as Node);
-            setDialogOpen(true);
+            const params = new URLSearchParams(searchParams);
+            params.set('dialog', 'fab-button');
+            params.set('type', 'dialog');
+            router.push(`?${params.toString()}`, { scroll: false });
           }}
         >
           <Iconify icon="lucide:loader" width={24} />
@@ -495,32 +521,51 @@ export function FlowView({ sx }: Props) {
     <>
       {renderContent()}
 
-      {/* NodeDialog with React Portal - renders outside React Flow */}
-      <NodeDialog
-        node={selectedNode}
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-      />
+      {/* Conditionally render dialogs based on URL query parameters */}
+      {dialogNodeId && dialogType === 'dialog' && (
+        <NodeDialog
+          node={nodes.find(n => n.id === dialogNodeId) ||
+                { id: dialogNodeId, data: { label: 'Radial Timeline' } } as Node}
+          open={isDialogOpen}
+          onClose={handleCloseDialog}
+        />
+      )}
 
-      {/* NodeContextDrawer - opens from left with transparent background */}
-      <NodeContextDrawer
-        node={contextNode}
-        open={contextDrawerOpen}
-        onClose={handleCloseContextDrawer}
-      />
+      {dialogNodeId && dialogType === 'drawer' && (
+        <NodeContextDrawer
+          node={nodes.find(n => n.id === dialogNodeId) || null}
+          open={isDrawerOpen}
+          onClose={handleCloseContextDrawer}
+        />
+      )}
+
+      {dialogNodeId && dialogType === 'appstore' && (() => {
+        const node = nodes.find(n => n.id === dialogNodeId);
+
+        // Prepare node with layoutId for animation
+        const nodeWithLayoutId = node ? {
+          ...node,
+          data: {
+            ...node.data,
+            useLayoutId: true,
+            layoutTimestamp: Date.now()
+          }
+        } : null;
+
+        return (
+          <AppStoreCardDialog
+            key={dialogNodeId}
+            open={isAppStoreOpen}
+            node={nodeWithLayoutId}
+            onClose={handleCloseAppStoreDialog}
+          />
+        );
+      })()}
 
       {/* PathChatDrawer - opens from right with transparent background */}
       <PathChatDrawer
         open={chatDrawerOpen}
         onClose={handleCloseChatDrawer}
-      />
-
-      {/* AppStoreCardDialog - App Store-style card expansion */}
-      <AppStoreCardDialog
-        key={appStoreNode?.id}
-        open={appStoreDialogOpen}
-        node={appStoreNode}
-        onClose={handleCloseAppStoreDialog}
       />
     </>
   );

@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import { CardImage } from './appstore-card/card-image';
 import { CardTitle } from './appstore-card/card-title';
 import { CardContent } from './appstore-card/card-content';
+import { useInvertedBorderRadius } from './appstore-card/use-inverted-border-radius';
 import { useScrollConstraints } from './appstore-card/use-scroll-constraints';
 import { useWheelScroll } from './appstore-card/use-wheel-scroll';
 import { openSpring, closeSpring } from './appstore-card/animations';
@@ -26,6 +27,7 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
   const y = useMotionValue(0);
   const zIndex = useMotionValue(open ? 2 : 0);
 
+  const inverted = useInvertedBorderRadius(20);
   const cardRef = useRef<HTMLDivElement>(null);
   const constraints = useScrollConstraints(cardRef, open);
 
@@ -53,10 +55,10 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
   }, [y, onClose]);
 
   // Handle z-index updates
-  const checkZIndex = useCallback(() => {
+  const checkZIndex = useCallback((latest: any) => {
     if (open) {
       zIndex.set(2);
-    } else {
+    } else if (!open && latest.scaleX < 1.01) {
       zIndex.set(0);
     }
   }, [open, zIndex]);
@@ -165,7 +167,9 @@ export function AppStoreCardDialog({ open, node, onClose }: AppStoreCardDialogPr
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.2}
               onDrag={checkSwipeToDismiss}
+              onUpdate={checkZIndex}
               style={{
+                ...inverted,
                 y,
                 zIndex,
                 maxWidth: '600px',
