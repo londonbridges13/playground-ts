@@ -81,4 +81,8 @@ export const endpoints = {
     details: '/api/product/details',
     search: '/api/product/search',
   },
+  focus: {
+    interface: (id: string) => `/api/focus/${id}/interface`,
+    generateInterface: (id: string) => `/api/focus/${id}/generate-interface`,
+  },
 } as const;
