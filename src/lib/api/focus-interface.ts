@@ -6,9 +6,40 @@ import type {
   EdgeInput,
   LayoutConfig,
   FocusInterfaceResponse,
+  FlowNode,
 } from 'src/types/focus-interface';
 
 import axios, { endpoints } from 'src/lib/axios';
+
+// ----------------------------------------------------------------------
+
+/**
+ * Transform API node to React Flow compatible format
+ * Moves 'handles' from top level to 'data.handleInfo' to avoid React Flow processing
+ * Ensures opacity defaults to 1 for proper node rendering
+ */
+function transformNodeForReactFlow(apiNode: any): FlowNode {
+  const { handles, ...rest } = apiNode;
+
+  return {
+    ...rest,
+    data: {
+      ...rest.data,
+      opacity: rest.data.opacity ?? 1, // Ensure opacity defaults to 1
+      handleInfo: handles, // Move handles into data as handleInfo
+    },
+  };
+}
+
+/**
+ * Transform API response to React Flow compatible format
+ */
+function transformInterfaceForReactFlow(apiInterface: any): FocusInterface {
+  return {
+    ...apiInterface,
+    nodes: apiInterface.nodes.map(transformNodeForReactFlow),
+  };
+}
 
 // ----------------------------------------------------------------------
 
@@ -28,7 +59,8 @@ export const focusInterfaceAPI = {
         throw new Error(res.data.error || 'Failed to fetch interface');
       }
 
-      return res.data.interface!;
+      // Transform the interface to move handles to data.handleInfo
+      return transformInterfaceForReactFlow(res.data.interface!);
     } catch (error) {
       console.error('Error fetching interface:', error);
       throw error;
@@ -62,7 +94,8 @@ export const focusInterfaceAPI = {
         throw new Error(res.data.error || 'Failed to generate interface');
       }
 
-      return res.data.interface!;
+      // Transform the interface to move handles to data.handleInfo
+      return transformInterfaceForReactFlow(res.data.interface!);
     } catch (error) {
       console.error('Error generating interface:', error);
       throw error;

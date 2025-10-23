@@ -27,8 +27,8 @@ export interface FlowNode {
     description?: string;
     opacity?: number;
     backgroundColor?: string;
-    actionType?: 'dialog' | 'drawer' | 'link';
-    handles?: NodeHandles;
+    actionType?: 'dialog' | 'drawer' | 'link' | 'appstore';
+    handleInfo?: NodeHandles; // Renamed from 'handles' to avoid React Flow processing
     // Node-specific data
     importance?: number; // 1-10 for hexagon nodes
     stage?: string; // For glass nodes
@@ -83,7 +83,7 @@ export interface NodeInput {
     description?: string;
     opacity?: number;
     backgroundColor?: string;
-    actionType?: 'dialog' | 'drawer' | 'link';
+    actionType?: 'dialog' | 'drawer' | 'link' | 'appstore';
     importance?: number;
     stage?: string;
     category?: string;

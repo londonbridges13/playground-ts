@@ -1,86 +1,186 @@
-// src/sections/focus-interface/nodes/glass-node.tsx
-
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
+import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
-// Node dimensions
-const NODE_WIDTH = 200;
-const NODE_HEIGHT = 200;
+export const GlassNode = memo(({ data, isConnectable, selected }: NodeProps) => {
+  const nodeOpacity = data.opacity ?? 1;
+  const nodeIndex = data.index ?? 0;
+  const isExiting = data.isExiting ?? false;
+  const exitAnimationType = data.exitAnimationType ?? 'slide';
 
-// Helper to convert absolute coordinates to relative node coordinates
-const getRelativeCoordinates = (absoluteX: number, absoluteY: number, nodeX: number, nodeY: number) => ({
-  x: absoluteX - nodeX,
-  y: absoluteY - nodeY,
+  // Define exit animations
+  const exitAnimations = {
+    slide: {
+      opacity: 0,
+      scale: 0.5,
+      rotateY: 90,
+      x: 0,
+      rotateZ: 0,
+    },
+    shuffle: {
+      opacity: 0,
+      scale: 0.6,
+      x: (nodeIndex % 2 === 0 ? -1 : 1) * 400,
+      rotateZ: (nodeIndex % 2 === 0 ? -1 : 1) * 25,
+      y: Math.random() * 150 - 75,
+      rotateY: 0,
+    }
+  };
+
+  return (
+    <m.div
+      initial={{ scale: 0.5, x: 0, rotateY: 0, rotateZ: 0 }}
+      animate={
+        isExiting
+          ? exitAnimations[exitAnimationType]
+          : { scale: 1, rotateY: 0, x: 0, rotateZ: 0 }
+      }
+      transition={{
+        duration: isExiting && exitAnimationType === 'shuffle' ? 0.8 : 0.6,
+        delay: nodeIndex * 0.1,
+        ease: isExiting && exitAnimationType === 'shuffle'
+          ? [0.6, 0.01, 0.05, 0.95]
+          : [0.34, 1.56, 0.64, 1],
+      }}
+      style={{ width: '100%', height: '100%' }}
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          width: 200,
+          height: 200,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          outline: selected ? '2px solid #1976d2' : 'none',
+          outlineOffset: 4,
+          isolation: 'isolate',
+        }}
+      >
+      {/* Glass effect container */}
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '28px',
+          isolation: 'isolate',
+          boxShadow: '0px 6px 24px rgba(0, 0, 0, 0.2)',
+
+          // Inner shadow + tint layer
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            zIndex: 0,
+            borderRadius: '28px',
+            boxShadow: 'inset 0 0 20px -5px rgba(255, 255, 255, 0.7)',
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+          },
+
+          // Backdrop blur + SVG distortion layer
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            zIndex: -1,
+            borderRadius: '28px',
+            backdropFilter: 'blur(8px)',
+            filter: 'url(#glass-node-distortion)',
+            isolation: 'isolate',
+            WebkitBackdropFilter: 'blur(8px)',
+            WebkitFilter: 'url(#glass-node-distortion)',
+          },
+        }}
+      />
+
+      {/* Content */}
+      <Typography
+        variant="h6"
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          textAlign: 'center',
+          px: 2,
+          fontWeight: 600,
+          color: 'rgba(0, 0, 0, 0.8)',
+          textShadow: '0 1px 2px rgba(255, 255, 255, 0.5)',
+        }}
+      >
+        {data.label}
+      </Typography>
+
+      {/* SVG Filter Definition for Glass Distortion */}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="0"
+        height="0"
+        style={{ position: 'absolute', overflow: 'hidden' }}
+      >
+        <defs>
+          <filter id="glass-node-distortion" x="0%" y="0%" width="100%" height="100%">
+            {/* Generate fractal noise for organic distortion */}
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.008 0.008"
+              numOctaves="2"
+              seed="92"
+              result="noise"
+            />
+
+            {/* Blur the noise for smoother liquid effect */}
+            <feGaussianBlur
+              in="noise"
+              stdDeviation="2"
+              result="blurred"
+            />
+
+            {/* Apply displacement to create liquid glass distortion */}
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="blurred"
+              scale="77"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
+          </filter>
+        </defs>
+      </svg>
+
+      {/* Connection Handles */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        isConnectable={isConnectable}
+        style={{ background: '#555', top: 10, opacity: 0 }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        isConnectable={isConnectable}
+        style={{ background: '#555', bottom: 10, opacity: 0 }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left"
+        isConnectable={isConnectable}
+        style={{ background: '#555', left: 30 }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        isConnectable={isConnectable}
+        style={{ background: '#555', right: 30 }}
+      />
+    </Box>
+    </m.div>
+  );
 });
-
-// ----------------------------------------------------------------------
-
-export const GlassNode = memo(({ data, id, xPos = 0, yPos = 0 }: NodeProps) => (
-  <Box
-    sx={{
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
-      opacity: data.opacity || 0.9,
-      background: 'rgba(255, 255, 255, 0.1)',
-      backdropFilter: 'blur(10px)',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: 2,
-      position: 'relative',
-      padding: 2,
-    }}
-  >
-    {/* Handles */}
-    {data.handles?.sources?.map((handle: any) => {
-      const relCoords = getRelativeCoordinates(handle.coordinates.x, handle.coordinates.y, xPos, yPos);
-      return (
-        <Handle
-          key={handle.id}
-          type="source"
-          position={handle.position as Position}
-          id={handle.id}
-          style={{
-            left: `${relCoords.x}px`,
-            top: `${relCoords.y}px`,
-          }}
-        />
-      );
-    })}
-
-    {data.handles?.targets?.map((handle: any) => {
-      const relCoords = getRelativeCoordinates(handle.coordinates.x, handle.coordinates.y, xPos, yPos);
-      return (
-        <Handle
-          key={handle.id}
-          type="target"
-          position={handle.position as Position}
-          id={handle.id}
-          style={{
-            left: `${relCoords.x}px`,
-            top: `${relCoords.y}px`,
-          }}
-        />
-      );
-    })}
-
-    <Typography variant="h6" fontWeight="bold">
-      {data.label}
-    </Typography>
-    {data.description && (
-      <Typography variant="body2" sx={{ mt: 1 }}>
-        {data.description}
-      </Typography>
-    )}
-    {data.stage && (
-      <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-        Stage: {data.stage}
-      </Typography>
-    )}
-  </Box>
-));
 
 GlassNode.displayName = 'GlassNode';
 

@@ -1,16 +1,13 @@
 // src/app/focus-test/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { ReactFlowProvider } from '@xyflow/react';
-
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 
 import { CONFIG } from 'src/global-config';
-import { FocusInterfaceView, NodeDetailDialog } from 'src/sections/focus-interface';
+import { FocusInterfaceView } from 'src/sections/focus-interface';
 
 // ----------------------------------------------------------------------
 
@@ -24,21 +21,13 @@ import { FocusInterfaceView, NodeDetailDialog } from 'src/sections/focus-interfa
  * - Goal: TypeScript Mastery 🎯
  * - Nodes: 5 (TypeScript Basics, Advanced Types, Generics, Decorators, TypeScript Project)
  * - Edges: 4 connections
+ *
+ * Note: FocusInterfaceView now handles all dialogs/drawers internally via URL parameters.
+ * Click on nodes to see the new dialog system in action!
  */
 export default function FocusTestPage() {
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-
   // Test Focus ID from backend
   const testFocusId = 'cmh3inmsa00072gdtkwiherjh';
-
-  const handleNodeClick = (nodeId: string, nodeData: any) => {
-    console.log('Node clicked:', nodeId, nodeData);
-    setSelectedNode(nodeData);
-  };
-
-  const handleEdgeClick = (edgeId: string, edgeData: any) => {
-    console.log('Edge clicked:', edgeId, edgeData);
-  };
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -69,23 +58,10 @@ export default function FocusTestPage() {
         </Button>
       </Paper>
 
-      {/* Visualization */}
+      {/* Visualization - FocusInterfaceView includes ReactFlowProvider internally */}
       <Box sx={{ flex: 1 }}>
-        <ReactFlowProvider>
-          <FocusInterfaceView
-            focusId={testFocusId}
-            onNodeClick={handleNodeClick}
-            onEdgeClick={handleEdgeClick}
-          />
-        </ReactFlowProvider>
+        <FocusInterfaceView focusId={testFocusId} />
       </Box>
-
-      {/* Node Detail Dialog */}
-      <NodeDetailDialog
-        open={!!selectedNode}
-        onClose={() => setSelectedNode(null)}
-        nodeData={selectedNode}
-      />
     </Box>
   );
 }
