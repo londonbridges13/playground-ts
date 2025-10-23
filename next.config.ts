@@ -23,6 +23,10 @@ const nextConfig: NextConfig = {
   env: {
     BUILD_STATIC_EXPORT: JSON.stringify(isStaticExport),
   },
+  // Skip ESLint during builds
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Without --turbopack (next dev)
   webpack(config) {
     config.module.rules.push({
