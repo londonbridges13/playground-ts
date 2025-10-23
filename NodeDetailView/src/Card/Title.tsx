@@ -2,7 +2,13 @@ import * as React from "react";
 import { motion, useDeprecatedInvertedScale } from "framer-motion";
 import { closeSpring, openSpring } from "./animations";
 
-export const Title = ({ title, category, isSelected }) => {
+interface TitleProps {
+  title: string;
+  category: string;
+  isSelected: boolean;
+}
+
+export const Title: React.FC<TitleProps> = ({ title, category, isSelected }) => {
   const inverted = useDeprecatedInvertedScale();
   const x = isSelected ? 30 : 15;
   const y = x;
@@ -35,5 +41,5 @@ export const Title = ({ title, category, isSelected }) => {
  * the scale of the parent component. Because of this we want to translate
  * through scaled coordinate space, and can use the transformTemplate prop to do so.
  */
-const scaleTranslate = ({ x, y, scaleX, scaleY }) =>
+const scaleTranslate = ({ x, y, scaleX, scaleY }: any) =>
   `scaleX(${scaleX}) scaleY(${scaleY}) translate(${x}, ${y}) translateZ(0)`;
