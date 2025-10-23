@@ -1,5 +1,5 @@
 import * as React from "react";
-import { motion, useInvertedScale } from "framer-motion";
+import { motion, useDeprecatedInvertedScale } from "framer-motion";
 import { closeSpring } from "./animations";
 
 export const Image = ({
@@ -8,7 +8,7 @@ export const Image = ({
   pointOfInterest = 0,
   backgroundColor
 }) => {
-  const inverted = useInvertedScale();
+  const inverted = useDeprecatedInvertedScale();
 
   return (
     <motion.div

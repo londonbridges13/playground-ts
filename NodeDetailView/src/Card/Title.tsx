@@ -1,9 +1,9 @@
 import * as React from "react";
-import { motion, useInvertedScale } from "framer-motion";
+import { motion, useDeprecatedInvertedScale } from "framer-motion";
 import { closeSpring, openSpring } from "./animations";
 
 export const Title = ({ title, category, isSelected }) => {
-  const inverted = useInvertedScale();
+  const inverted = useDeprecatedInvertedScale();
   const x = isSelected ? 30 : 15;
   const y = x;
 
