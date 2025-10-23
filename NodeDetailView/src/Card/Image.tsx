@@ -2,7 +2,14 @@ import * as React from "react";
 import { motion, useDeprecatedInvertedScale } from "framer-motion";
 import { closeSpring } from "./animations";
 
-export const Image = ({
+interface ImageProps {
+  id: string;
+  isSelected: boolean;
+  pointOfInterest?: number;
+  backgroundColor: string;
+}
+
+export const Image: React.FC<ImageProps> = ({
   id,
   isSelected,
   pointOfInterest = 0,
