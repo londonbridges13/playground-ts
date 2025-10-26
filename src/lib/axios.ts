@@ -3,6 +3,7 @@ import type { AxiosRequestConfig } from 'axios';
 import axios from 'axios';
 
 import { CONFIG } from 'src/global-config';
+import { JWT_STORAGE_KEY } from 'src/auth/context/jwt/constant';
 
 // ----------------------------------------------------------------------
 
@@ -13,18 +14,15 @@ const axiosInstance = axios.create({
   },
 });
 
-/**
- * Optional: Add token (if using auth)
- *
- axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+// Add JWT token to all requests
+axiosInstance.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem(JWT_STORAGE_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log('[axios] Added JWT token to request');
   }
   return config;
 });
-*
-*/
 
 axiosInstance.interceptors.response.use(
   (response) => response,
@@ -84,5 +82,11 @@ export const endpoints = {
   focus: {
     interface: (id: string) => `/api/focus/${id}/interface`,
     generateInterface: (id: string) => `/api/focus/${id}/generate-interface`,
+  },
+  conversations: {
+    start: '/api/conversations/start',
+    list: '/api/conversations',
+    details: (id: string) => `/api/conversations/${id}`,
+    messages: (id: string) => `/api/conversations/${id}/messages`,
   },
 } as const;

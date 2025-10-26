@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 
 import { m } from 'motion/react';
 import { varAlpha } from 'minimal-shared/utils';
@@ -19,6 +20,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Avatar from '@mui/material/Avatar';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import CloseIcon from '@mui/icons-material/Close';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
@@ -30,6 +32,13 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import TuneIcon from '@mui/icons-material/Tune';
 
 import { Iconify } from 'src/components/iconify';
+import { MarkdownMessage } from 'src/components/markdown-message';
+import { useAuthContext } from 'src/auth/hooks/use-auth-context';
+import { useSocket } from 'src/hooks/useSocket';
+import { useAIStreaming } from 'src/hooks/useAIStreaming';
+import { conversationAPI } from 'src/lib/api/conversations';
+import { JWT_STORAGE_KEY } from 'src/auth/context/jwt/constant';
+import type { SocketMessage } from 'src/types/socket';
 
 // ----------------------------------------------------------------------
 
@@ -45,15 +54,16 @@ const models = [
 type PathChatDrawerProps = {
   open: boolean;
   onClose: () => void;
+  conversationId?: string;
 };
 
-// ----------------------------------------------------------------------
+// ============================================================================
+// Types
+// ============================================================================
 
-interface Message {
-  id: number;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
+interface TypingUser {
+  userId: string;
+  name: string;
 }
 
 // ----------------------------------------------------------------------
@@ -305,25 +315,78 @@ const MiniHexagon = ({
 
 // ----------------------------------------------------------------------
 
-export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
+export function PathChatDrawer({ open, onClose, conversationId: propConversationId }: PathChatDrawerProps) {
+  const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState<'chat' | 'search'>('chat');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      role: 'assistant',
-      content: "Hello! I'm your AI assistant. How can I help you today?",
-      timestamp: new Date(),
-    },
-  ]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Sonnet 4.5');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [conversationId, setConversationId] = useState<string | null>(propConversationId || null);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Map<string, TypingUser>>(new Map());
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dragTimerRef = useRef<NodeJS.Timeout | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const isUserScrollingRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
   const menuOpen = Boolean(anchorEl);
+
+  // Get JWT token from sessionStorage (fallback to auth context)
+  const token = typeof window !== 'undefined'
+    ? (sessionStorage.getItem(JWT_STORAGE_KEY) || user?.accessToken || '')
+    : (user?.accessToken || '');
+
+  // Initialize AI Streaming
+  const {
+    streamingMessages,
+    currentStreamingId,
+    handleStreamStart,
+    handleStreamChunk,
+    handleStreamComplete,
+    getStreamingMessage,
+    isMessageStreaming,
+  } = useAIStreaming();
+
+  // Initialize Socket.IO
+  const {
+    connected,
+    messages,
+    setMessages,
+    joinConversation,
+    leaveConversation,
+    sendMessage,
+    sendTyping,
+    stopTyping,
+  } = useSocket({
+    token,
+    onMessage: (message: SocketMessage) => {
+      // Message is already added to state by the hook
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Socket error occurred');
+    },
+    onTyping: (data) => {
+      setTypingUsers((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(data.userId, { userId: data.userId, name: data.name });
+        return newMap;
+      });
+    },
+    onStoppedTyping: (data) => {
+      setTypingUsers((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(data.userId);
+        return newMap;
+      });
+    },
+    onStreamStart: handleStreamStart,
+    onStreamChunk: handleStreamChunk,
+    onStreamComplete: handleStreamComplete,
+  });
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -338,49 +401,158 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
     };
   }, [open]);
 
+  // Initialize or fetch conversation
+  useEffect(() => {
+    if (!open || !token) {
+      console.log('[PathChatDrawer] Skipping init - open:', open, 'token:', !!token);
+      return;
+    }
+
+    const initializeConversation = async () => {
+      try {
+        console.log('[PathChatDrawer] Starting conversation initialization...');
+        setIsLoadingConversation(true);
+
+        // If no conversation ID, create a new one
+        if (!conversationId) {
+          console.log('[PathChatDrawer] No conversation ID, creating new one...');
+          const response = await conversationAPI.startConversation({
+            title: `Chat - ${new Date().toLocaleDateString()}`,
+          });
+
+          console.log('[PathChatDrawer] Conversation API response:', response);
+
+          if (response.success && response.data?.id) {
+            console.log('[PathChatDrawer] Conversation created with ID:', response.data.id);
+            setConversationId(response.data.id);
+            // Join will be called in the next effect
+          } else {
+            console.error('[PathChatDrawer] Failed to start conversation - response:', response);
+            toast.error('Failed to start conversation');
+          }
+        } else {
+          console.log('[PathChatDrawer] Using existing conversation ID:', conversationId);
+        }
+      } catch (error) {
+        console.error('[PathChatDrawer] Error during initialization:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to initialize conversation');
+      } finally {
+        setIsLoadingConversation(false);
+      }
+    };
+
+    initializeConversation();
+  }, [open, token]);
+
+  // Join conversation when ID is available and socket is connected
+  useEffect(() => {
+    console.log('[PathChatDrawer] Join effect - conversationId:', conversationId, 'connected:', connected);
+    if (!conversationId || !connected) {
+      console.log('[PathChatDrawer] Skipping join - conversationId:', !!conversationId, 'connected:', connected);
+      return;
+    }
+    console.log('[PathChatDrawer] Joining conversation:', conversationId);
+    joinConversation(conversationId);
+  }, [conversationId, connected, joinConversation]);
+
+  // Cleanup on drawer close
+  useEffect(() => {
+    return () => {
+      if (conversationId) {
+        leaveConversation(conversationId);
+      }
+    };
+  }, [conversationId, leaveConversation]);
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: 'chat' | 'search') => {
     setActiveTab(newValue);
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, []);
 
+  const isAtBottom = useCallback(() => {
+    if (!messagesContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    // Consider "at bottom" if within 100px of the bottom
+    return scrollHeight - scrollTop - clientHeight < 100;
+  }, []);
+
+  // Handle scroll events to detect user scrolling
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+
+    const currentScrollTop = messagesContainerRef.current.scrollTop;
+
+    // If user scrolls upward (scrollTop decreases), detach auto-scroll
+    if (currentScrollTop < lastScrollTopRef.current) {
+      isUserScrollingRef.current = true;
+    }
+    // If user scrolls back to bottom, reattach auto-scroll
+    else if (isAtBottom()) {
+      isUserScrollingRef.current = false;
+    }
+
+    lastScrollTopRef.current = currentScrollTop;
+  }, [isAtBottom]);
+
+  // Auto-scroll when messages change (if user is at bottom)
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    if (!isUserScrollingRef.current) {
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [messages, typingUsers, scrollToBottom]);
+
+  // Auto-scroll when streaming messages change (if user is at bottom)
+  useEffect(() => {
+    if (!isUserScrollingRef.current) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [streamingMessages, scrollToBottom]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    console.log('[PathChatDrawer] handleSend - input:', input, 'conversationId:', conversationId);
+    if (!input.trim() || !conversationId) {
+      console.log('[PathChatDrawer] Skipping send - input empty or no conversationId');
+      return;
+    }
 
-    const userMessage: Message = {
-      id: messages.length + 1,
-      role: 'user',
-      content: input,
-      timestamp: new Date(),
-    };
-
-    setMessages([...messages, userMessage]);
-    setInput('');
-    setIsTyping(true);
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: messages.length + 2,
-        role: 'assistant',
-        content: 'This is a demo response. In a real application, this would connect to an AI model.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsTyping(false);
-    }, 1000);
+    console.log('[PathChatDrawer] Sending message:', input);
+    sendMessage(conversationId, input, {
+      generateAIResponse: true,
+      onSuccess: () => {
+        console.log('[PathChatDrawer] Message sent successfully');
+        setInput('');
+        stopTyping(conversationId);
+      },
+      onError: (error: string) => {
+        console.error('[PathChatDrawer] Failed to send message:', error);
+        toast.error(`Failed to send message: ${error}`);
+      },
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      console.log('[PathChatDrawer] Enter key pressed');
       handleSend();
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[PathChatDrawer] Input changed:', e.target.value, 'conversationId:', conversationId);
+    setInput(e.target.value);
+    if (conversationId) {
+      sendTyping(conversationId);
     }
   };
 
@@ -640,108 +812,212 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
 
       {/* Messages Container */}
       <Box
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
         sx={{
           flex: 1,
           overflowY: 'auto',
           px: 3,
-          py: 0,
+          py: 2,
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {messages.map((message) => (
-            <Box key={message.id} sx={{ display: 'flex', gap: 2 }}>
-              {/* Avatar */}
-              <Avatar
-                sx={{
-                  width: 32,
-                  height: 32,
-                  flexShrink: 0,
-                  bgcolor: message.role === 'user' ? 'grey.700' : 'primary.main',
-                }}
-              >
-                <Iconify
-                  icon={message.role === 'user' ? 'solar:user-bold' : 'solar:chat-round-line-bold'}
-                  width={20}
-                />
-              </Avatar>
-
-              {/* Message Content */}
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                {/* Header */}
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    {message.role === 'user' ? 'You' : 'AI Assistant'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {message.timestamp.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Typography>
-                </Box>
-
-                {/* Message Text */}
-                <Typography
-                  variant="body2"
+        {isLoadingConversation ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <CircularProgress />
+          </Box>
+        ) : messages.length === 0 ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Typography color="text.secondary">No messages yet. Start the conversation!</Typography>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {messages.map((message) => (
+              <Box key={message.id} sx={{ display: 'flex', gap: 2 }}>
+                {/* Avatar */}
+                <Avatar
                   sx={{
-                    color: 'text.primary',
-                    lineHeight: 1.6,
-                    whiteSpace: 'pre-wrap',
+                    width: 32,
+                    height: 32,
+                    flexShrink: 0,
+                    bgcolor: message.senderType === 'USER' ? 'grey.700' : 'primary.main',
                   }}
                 >
-                  {message.content}
-                </Typography>
-              </Box>
-            </Box>
-          ))}
+                  <Iconify
+                    icon={message.senderType === 'USER' ? 'solar:user-bold' : 'solar:chat-round-line-bold'}
+                    width={20}
+                  />
+                </Avatar>
 
-          {/* Typing Indicator */}
-          {isTyping && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Avatar
-                sx={{
-                  width: 32,
-                  height: 32,
-                  flexShrink: 0,
-                  bgcolor: 'primary.main',
-                }}
-              >
-                <Iconify icon="solar:chat-round-line-bold" width={20} />
-              </Avatar>
+                {/* Message Content */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {/* Header */}
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {message.senderName || (message.senderType === 'USER' ? 'You' : 'AI Assistant')}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(message.createdAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Typography>
+                    {isMessageStreaming(message.id) && (
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          gap: 0.5,
+                          ml: 'auto',
+                        }}
+                      >
+                        {[0, 150, 300].map((delay, index) => (
+                          <Box
+                            key={index}
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              bgcolor: 'primary.main',
+                              borderRadius: '50%',
+                              animation: 'bounce 1.4s infinite ease-in-out',
+                              animationDelay: `${delay}ms`,
+                              '@keyframes bounce': {
+                                '0%, 80%, 100%': {
+                                  transform: 'scale(0)',
+                                },
+                                '40%': {
+                                  transform: 'scale(1)',
+                                },
+                              },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
 
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  AI Assistant
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  {[0, 150, 300].map((delay, index) => (
-                    <Box
-                      key={index}
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        bgcolor: 'grey.400',
-                        borderRadius: '50%',
-                        animation: 'bounce 1.4s infinite ease-in-out',
-                        animationDelay: `${delay}ms`,
-                        '@keyframes bounce': {
-                          '0%, 80%, 100%': {
-                            transform: 'scale(0)',
-                          },
-                          '40%': {
-                            transform: 'scale(1)',
-                          },
-                        },
-                      }}
-                    />
-                  ))}
+                  {/* Message Text - Markdown Support */}
+                  <MarkdownMessage content={message.content} />
                 </Box>
               </Box>
-            </Box>
-          )}
+            ))}
 
-          <div ref={messagesEndRef} />
-        </Box>
+            {/* Streaming Messages - Show in-progress AI responses */}
+            {Array.from(streamingMessages.values()).map((streamingMsg) => (
+              <Box key={streamingMsg.messageId} sx={{ display: 'flex', gap: 2 }}>
+                {/* Avatar */}
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    flexShrink: 0,
+                    bgcolor: 'primary.main',
+                  }}
+                >
+                  <Iconify icon="solar:chat-round-line-bold" width={20} />
+                </Avatar>
+
+                {/* Message Content */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {/* Header */}
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      AI Assistant
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date().toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Typography>
+                    {streamingMsg.isStreaming && (
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          gap: 0.5,
+                          ml: 'auto',
+                        }}
+                      >
+                        {[0, 150, 300].map((delay, index) => (
+                          <Box
+                            key={index}
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              bgcolor: 'primary.main',
+                              borderRadius: '50%',
+                              animation: 'bounce 1.4s infinite ease-in-out',
+                              animationDelay: `${delay}ms`,
+                              '@keyframes bounce': {
+                                '0%, 80%, 100%': {
+                                  transform: 'scale(0)',
+                                },
+                                '40%': {
+                                  transform: 'scale(1)',
+                                },
+                              },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* Message Text - Markdown Support */}
+                  <MarkdownMessage content={streamingMsg.content} />
+                </Box>
+              </Box>
+            ))}
+
+            {/* Typing Indicator - Show who is typing */}
+            {typingUsers.size > 0 && (
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    flexShrink: 0,
+                    bgcolor: 'primary.main',
+                  }}
+                >
+                  <Iconify icon="solar:chat-round-line-bold" width={20} />
+                </Avatar>
+
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    {Array.from(typingUsers.values())
+                      .map((u) => u.name)
+                      .join(', ')}{' '}
+                    {typingUsers.size === 1 ? 'is' : 'are'} typing...
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    {[0, 150, 300].map((delay, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          bgcolor: 'grey.400',
+                          borderRadius: '50%',
+                          animation: 'bounce 1.4s infinite ease-in-out',
+                          animationDelay: `${delay}ms`,
+                          '@keyframes bounce': {
+                            '0%, 80%, 100%': {
+                              transform: 'scale(0)',
+                            },
+                            '40%': {
+                              transform: 'scale(1)',
+                            },
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              </Box>
+            )}
+
+            <div ref={messagesEndRef} />
+          </Box>
+        )}
       </Box>
 
       {/* Input Area */}
@@ -753,6 +1029,27 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
           py: 2,
         }}
       >
+        {/* Current User Display */}
+        {user && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+            <Avatar
+              src={user.photoURL}
+              alt={user.displayName}
+              sx={{ width: 32, height: 32 }}
+            >
+              {user.displayName?.charAt(0).toUpperCase()}
+            </Avatar>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Sending as
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                {user.displayName}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
         {/* Text Input Container */}
         <Box
           sx={{
@@ -768,7 +1065,7 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
             fullWidth
             multiline
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyPress}
             placeholder="Type your message..."
             variant="standard"
