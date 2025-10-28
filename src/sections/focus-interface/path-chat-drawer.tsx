@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
+import SwipeableViews from 'react-swipeable-views';
 
 import { m } from 'motion/react';
 import { varAlpha } from 'minimal-shared/utils';
@@ -55,6 +56,7 @@ type PathChatDrawerProps = {
   open: boolean;
   onClose: () => void;
   conversationId?: string;
+  initialMessage?: string | null;
 };
 
 // ============================================================================
@@ -315,7 +317,7 @@ const MiniHexagon = ({
 
 // ----------------------------------------------------------------------
 
-export function PathChatDrawer({ open, onClose, conversationId: propConversationId }: PathChatDrawerProps) {
+export function PathChatDrawer({ open, onClose, conversationId: propConversationId, initialMessage }: PathChatDrawerProps) {
   const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState<'chat' | 'search'>('chat');
   const [input, setInput] = useState('');
@@ -324,6 +326,8 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
   const [conversationId, setConversationId] = useState<string | null>(propConversationId || null);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Map<string, TypingUser>>(new Map());
+  const [hasInitialMessageSent, setHasInitialMessageSent] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dragTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -349,6 +353,7 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
     handleStreamComplete,
     getStreamingMessage,
     isMessageStreaming,
+    clearStreamingMessage,
   } = useAIStreaming();
 
   // Initialize Socket.IO
@@ -365,6 +370,11 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
     token,
     onMessage: (message: SocketMessage) => {
       // Message is already added to state by the hook
+    },
+    onConversationMessages: (conversationMessages: SocketMessage[]) => {
+      // When conversation history is loaded, filter out any optimistic messages (temp- IDs)
+      const realMessages = conversationMessages.filter((msg) => !msg.id.startsWith('temp-'));
+      setMessages(realMessages);
     },
     onError: (error) => {
       toast.error(error.message || 'Socket error occurred');
@@ -383,7 +393,13 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
         return newMap;
       });
     },
-    onStreamStart: handleStreamStart,
+    onStreamStart: (data) => {
+      if (placeholderAIStreamingIdRef.current) {
+        clearStreamingMessage(placeholderAIStreamingIdRef.current);
+        placeholderAIStreamingIdRef.current = null;
+      }
+      handleStreamStart(data);
+    },
     onStreamChunk: handleStreamChunk,
     onStreamComplete: handleStreamComplete,
   });
@@ -455,6 +471,75 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
     joinConversation(conversationId);
   }, [conversationId, connected, joinConversation]);
 
+  // Store the placeholder AI streaming ID so we can remove it later
+  const placeholderAIStreamingIdRef = useRef<string | null>(null);
+
+  // Add optimistic message immediately when drawer opens with initial message
+  useEffect(() => {
+    if (!initialMessage || hasInitialMessageSent) {
+      return;
+    }
+
+    let userName = user?.name || 'You';
+    if (!userName || userName === 'You') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          userName = parsedUser.name || parsedUser.displayName || 'You';
+        }
+      } catch (error) {
+        console.error('[PathChatDrawer] Error reading user from localStorage:', error);
+      }
+    }
+
+    const optimisticMessage: SocketMessage = {
+      id: `temp-${Date.now()}`,
+      content: initialMessage,
+      conversationId: conversationId || 'pending',
+      senderId: user?.id || 'unknown',
+      senderType: 'USER',
+      senderName: userName,
+      sequence: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isDeleted: false,
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+
+    const aiStreamingId = `ai-stream-${Date.now()}`;
+    placeholderAIStreamingIdRef.current = aiStreamingId;
+    handleStreamStart({ messageId: aiStreamingId, conversationId: conversationId || 'pending' });
+
+    setHasInitialMessageSent(true);
+  }, [initialMessage, hasInitialMessageSent, user, setMessages, conversationId, handleStreamStart]);
+
+  // Send initial message when socket is connected
+  useEffect(() => {
+    if (!initialMessage || !hasInitialMessageSent || !conversationId || !connected) {
+      return;
+    }
+
+    sendMessage(conversationId, initialMessage, {
+      generateAIResponse: true,
+      onSuccess: () => {
+        console.log('[PathChatDrawer] Initial message sent successfully');
+      },
+      onError: (error: string) => {
+        console.error('[PathChatDrawer] Failed to send initial message:', error);
+        toast.error(`Failed to send message: ${error}`);
+      },
+    });
+  }, [initialMessage, hasInitialMessageSent, conversationId, connected, sendMessage]);
+
+  // Reset sending state when AI response completes
+  useEffect(() => {
+    if (streamingMessages.size === 0 && isSendingMessage) {
+      setIsSendingMessage(false);
+    }
+  }, [streamingMessages, isSendingMessage]);
+
   // Cleanup on drawer close
   useEffect(() => {
     return () => {
@@ -464,13 +549,21 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
     };
   }, [conversationId, leaveConversation]);
 
+  // Reset initial message state when drawer closes
+  useEffect(() => {
+    if (!open) {
+      setHasInitialMessageSent(false);
+      isUserScrollingRef.current = false;
+    }
+  }, [open]);
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: 'chat' | 'search') => {
     setActiveTab(newValue);
   };
 
   const scrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
     }
   }, []);
 
@@ -480,6 +573,16 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
     // Consider "at bottom" if within 100px of the bottom
     return scrollHeight - scrollTop - clientHeight < 100;
   }, []);
+
+  // Scroll to bottom when drawer opens or when messages are first added
+  useEffect(() => {
+    if (open && messages.length > 0) {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [open, messages.length, scrollToBottom]);
 
   // Handle scroll events to detect user scrolling
   const handleScroll = useCallback(() => {
@@ -502,40 +605,52 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
   // Auto-scroll when messages change (if user is at bottom)
   useEffect(() => {
     if (!isUserScrollingRef.current) {
-      // Use requestAnimationFrame to ensure DOM is updated
-      requestAnimationFrame(() => {
+      const timer = setTimeout(() => {
         scrollToBottom();
-      });
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [messages, typingUsers, scrollToBottom]);
 
-  // Auto-scroll when streaming messages change (if user is at bottom)
+  // Auto-scroll when streaming messages change
+  // Always scroll to bottom while AI is responding (streaming messages exist)
   useEffect(() => {
-    if (!isUserScrollingRef.current) {
-      requestAnimationFrame(() => {
+    if (streamingMessages.size > 0) {
+      const timer = setTimeout(() => {
         scrollToBottom();
-      });
+      }, 0);
+      return () => clearTimeout(timer);
+    } else if (!isUserScrollingRef.current) {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [streamingMessages, scrollToBottom]);
 
   const handleSend = () => {
     console.log('[PathChatDrawer] handleSend - input:', input, 'conversationId:', conversationId);
-    if (!input.trim() || !conversationId) {
-      console.log('[PathChatDrawer] Skipping send - input empty or no conversationId');
+    if (!input.trim() || !conversationId || isSendingMessage) {
+      console.log('[PathChatDrawer] Skipping send - input empty, no conversationId, or already sending');
       return;
     }
 
     console.log('[PathChatDrawer] Sending message:', input);
+
+    // Clear input immediately and disable send button
+    setInput('');
+    setIsSendingMessage(true);
+    stopTyping(conversationId);
+
     sendMessage(conversationId, input, {
       generateAIResponse: true,
       onSuccess: () => {
         console.log('[PathChatDrawer] Message sent successfully');
-        setInput('');
-        stopTyping(conversationId);
       },
       onError: (error: string) => {
         console.error('[PathChatDrawer] Failed to send message:', error);
         toast.error(`Failed to send message: ${error}`);
+        setIsSendingMessage(false);
       },
     });
   };
@@ -768,9 +883,10 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
   const renderChatContent = () => (
     <Box
       sx={{
-        height: '100%',
+        height: 'auto',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
       {/* Header Card with Hex Node */}
@@ -780,6 +896,7 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
           mt: 3,
           mb: 2,
           overflow: 'visible',
+          flexShrink: 0,
         }}
       >
         <CardContent
@@ -819,14 +936,16 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
           overflowY: 'auto',
           px: 3,
           py: 2,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         {isLoadingConversation ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
             <CircularProgress />
           </Box>
         ) : messages.length === 0 ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
             <Typography color="text.secondary">No messages yet. Start the conversation!</Typography>
           </Box>
         ) : (
@@ -1019,237 +1138,6 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
           </Box>
         )}
       </Box>
-
-      {/* Input Area */}
-      <Box
-        sx={{
-          borderTop: 1,
-          borderColor: 'divider',
-          px: 3,
-          py: 2,
-        }}
-      >
-        {/* Current User Display */}
-        {user && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-            <Avatar
-              src={user.photoURL}
-              alt={user.displayName}
-              sx={{ width: 32, height: 32 }}
-            >
-              {user.displayName?.charAt(0).toUpperCase()}
-            </Avatar>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Sending as
-              </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                {user.displayName}
-              </Typography>
-            </Box>
-          </Box>
-        )}
-
-        {/* Text Input Container */}
-        <Box
-          sx={{
-            bgcolor: 'white',
-            borderRadius: '16px',
-            border: '1px solid #e0e0e0',
-            p: 1.5,
-            boxShadow: '0px 10px 20px 0px rgba(44, 42, 202, 0.2), 0px 5px 8px 0px rgba(218, 152, 235, 0.1)',
-          }}
-        >
-          {/* TextField */}
-          <TextField
-            fullWidth
-            multiline
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyPress}
-            placeholder="Type your message..."
-            variant="standard"
-            InputProps={{
-              disableUnderline: true,
-              sx: {
-                fontSize: '1.125rem',
-                color: '#374151',
-                padding: 0,
-                margin: 0,
-                minHeight: '32px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                flexWrap: 'wrap',
-                '& textarea': {
-                  resize: 'none',
-                  overflow: 'hidden !important',
-                  minHeight: '32px !important',
-                  maxHeight: '160px',
-                  padding: 0,
-                  margin: 0,
-                  lineHeight: 1.5,
-                  flex: 1,
-                },
-                '& textarea::placeholder': {
-                  color: '#9ca3af',
-                  opacity: 1,
-                },
-              },
-            }}
-            sx={{
-              mb: 0.5,
-              '& .MuiInputBase-root': {
-                padding: 0,
-                margin: 0,
-              },
-            }}
-          />
-
-          {/* Bottom toolbar */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            {/* Left side buttons */}
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <IconButton
-                size="small"
-                sx={{
-                  p: 1,
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  '&:hover': {
-                    bgcolor: '#f5f5f5',
-                  },
-                }}
-                aria-label="Add"
-              >
-                <AddIcon sx={{ fontSize: 18, color: '#374151' }} />
-              </IconButton>
-
-              <IconButton
-                size="small"
-                sx={{
-                  p: 1,
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  '&:hover': {
-                    bgcolor: '#f5f5f5',
-                  },
-                }}
-                aria-label="Settings"
-              >
-                <TuneIcon sx={{ fontSize: 18, color: '#374151' }} />
-              </IconButton>
-
-              <IconButton
-                size="small"
-                sx={{
-                  p: 1,
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  '&:hover': {
-                    bgcolor: '#f5f5f5',
-                  },
-                }}
-                aria-label="Schedule"
-              >
-                <AccessTimeIcon sx={{ fontSize: 18, color: '#374151' }} />
-              </IconButton>
-            </Box>
-
-            {/* Right side - model selector and send button */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton
-                size="small"
-                onClick={handleMenuOpen}
-                sx={{
-                  px: 1.5,
-                  py: 0.75,
-                  color: '#374151',
-                  borderRadius: '8px',
-                  '&:hover': {
-                    bgcolor: '#f5f5f5',
-                  },
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                }}
-                aria-label="Select model"
-              >
-                <Box component="span" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>
-                  {selectedModel}
-                </Box>
-                <KeyboardArrowDownIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-
-              <Menu
-                anchorEl={anchorEl}
-                open={menuOpen}
-                onClose={handleMenuClose}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                transformOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
-                }}
-                slotProps={{
-                  paper: {
-                    sx: {
-                      mt: -1,
-                      minWidth: 160,
-                      borderRadius: '12px',
-                      boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
-                    },
-                  },
-                }}
-              >
-                {models.map((model) => (
-                  <MenuItem
-                    key={model}
-                    selected={model === selectedModel}
-                    onClick={() => handleModelSelect(model)}
-                    sx={{
-                      fontSize: '0.8125rem',
-                      py: 0.75,
-                      px: 1.5,
-                      minHeight: 'auto',
-                    }}
-                  >
-                    {model}
-                  </MenuItem>
-                ))}
-              </Menu>
-
-              <IconButton
-                size="small"
-                onClick={handleSend}
-                disabled={!input.trim()}
-                sx={{
-                  bgcolor: '#fdba74',
-                  borderRadius: '8px',
-                  p: 1,
-                  '&:hover': {
-                    bgcolor: '#fb923c',
-                  },
-                  '&.Mui-disabled': {
-                    bgcolor: '#e5e7eb',
-                    color: '#9ca3af',
-                  },
-                }}
-                aria-label="Send message"
-              >
-                <ArrowUpwardIcon sx={{ fontSize: 20, color: 'white' }} />
-              </IconButton>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
     </Box>
   );
 
@@ -1336,14 +1224,294 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
   };
 
   const renderContent = () => {
-    switch (activeTab) {
-      case 'chat':
-        return renderChatContent();
-      case 'search':
-        return renderSearchContent();
-      default:
-        return renderChatContent();
-    }
+    const tabIndex = activeTab === 'chat' ? 0 : 1;
+
+    return (
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <SwipeableViews
+          index={tabIndex}
+          onChangeIndex={(index) => setActiveTab(index === 0 ? 'chat' : 'search')}
+          enableMouseEvents
+          sx={{
+            flex: 1,
+            display: 'flex',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Chat Tab */}
+          <Box
+            sx={{
+              width: '100%',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {renderChatContent()}
+          </Box>
+
+          {/* Search Tab */}
+          <Box
+            sx={{
+              width: '100%',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {renderSearchContent()}
+          </Box>
+        </SwipeableViews>
+
+        {/* Input Area - Only show on chat tab */}
+        {activeTab === 'chat' && (
+          <Box
+            sx={{
+              borderTop: 1,
+              borderColor: 'divider',
+              px: 3,
+              py: 2,
+              flexShrink: 0,
+              bgcolor: 'background.paper',
+            }}
+          >
+            {/* Current User Display */}
+            {user && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                <Avatar
+                  src={user.photoURL}
+                  alt={user.displayName}
+                  sx={{ width: 32, height: 32 }}
+                >
+                  {user.displayName?.charAt(0).toUpperCase()}
+                </Avatar>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Sending as
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {user.displayName}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+
+            {/* Text Input Container */}
+            <Box
+              sx={{
+                bgcolor: 'white',
+                borderRadius: '16px',
+                border: '1px solid #e0e0e0',
+                p: 1.5,
+                boxShadow: '0px 10px 20px 0px rgba(44, 42, 202, 0.2), 0px 5px 8px 0px rgba(218, 152, 235, 0.1)',
+              }}
+            >
+              {/* TextField */}
+              <TextField
+                fullWidth
+                multiline
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyPress}
+                placeholder="Type your message..."
+                variant="standard"
+                InputProps={{
+                  disableUnderline: true,
+                  sx: {
+                    fontSize: '1.125rem',
+                    color: '#374151',
+                    padding: 0,
+                    margin: 0,
+                    minHeight: '32px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    flexWrap: 'wrap',
+                    '& textarea': {
+                      resize: 'none',
+                      overflow: 'hidden !important',
+                      minHeight: '32px !important',
+                      maxHeight: '160px',
+                      padding: 0,
+                      margin: 0,
+                      lineHeight: 1.5,
+                      flex: 1,
+                    },
+                    '& textarea::placeholder': {
+                      color: '#9ca3af',
+                      opacity: 1,
+                    },
+                  },
+                }}
+                sx={{
+                  mb: 0.5,
+                  '& .MuiInputBase-root': {
+                    padding: 0,
+                    margin: 0,
+                  },
+                }}
+              />
+
+              {/* Bottom toolbar */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                {/* Left side buttons */}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <IconButton
+                    size="small"
+                    sx={{
+                      p: 1,
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      '&:hover': {
+                        bgcolor: '#f5f5f5',
+                      },
+                    }}
+                    aria-label="Add"
+                  >
+                    <AddIcon sx={{ fontSize: 18, color: '#374151' }} />
+                  </IconButton>
+
+                  <IconButton
+                    size="small"
+                    sx={{
+                      p: 1,
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      '&:hover': {
+                        bgcolor: '#f5f5f5',
+                      },
+                    }}
+                    aria-label="Settings"
+                  >
+                    <TuneIcon sx={{ fontSize: 18, color: '#374151' }} />
+                  </IconButton>
+
+                  <IconButton
+                    size="small"
+                    sx={{
+                      p: 1,
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      '&:hover': {
+                        bgcolor: '#f5f5f5',
+                      },
+                    }}
+                    aria-label="Schedule"
+                  >
+                    <AccessTimeIcon sx={{ fontSize: 18, color: '#374151' }} />
+                  </IconButton>
+                </Box>
+
+                {/* Right side - model selector and send button */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconButton
+                    size="small"
+                    onClick={handleMenuOpen}
+                    sx={{
+                      px: 1.5,
+                      py: 0.75,
+                      color: '#374151',
+                      borderRadius: '8px',
+                      '&:hover': {
+                        bgcolor: '#f5f5f5',
+                      },
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                    }}
+                    aria-label="Select model"
+                  >
+                    <Box component="span" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>
+                      {selectedModel}
+                    </Box>
+                    <KeyboardArrowDownIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={menuOpen}
+                    onClose={handleMenuClose}
+                    anchorOrigin={{
+                      vertical: 'top',
+                      horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                      vertical: 'bottom',
+                      horizontal: 'right',
+                    }}
+                    slotProps={{
+                      paper: {
+                        sx: {
+                          mt: -1,
+                          minWidth: 160,
+                          borderRadius: '12px',
+                          boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+                        },
+                      },
+                    }}
+                  >
+                    {models.map((model) => (
+                      <MenuItem
+                        key={model}
+                        selected={model === selectedModel}
+                        onClick={() => handleModelSelect(model)}
+                        sx={{
+                          fontSize: '0.8125rem',
+                          py: 0.75,
+                          px: 1.5,
+                          minHeight: 'auto',
+                        }}
+                      >
+                        {model}
+                      </MenuItem>
+                    ))}
+                  </Menu>
+
+                  <IconButton
+                    size="small"
+                    onClick={handleSend}
+                    disabled={!input.trim() || isSendingMessage}
+                    sx={{
+                      bgcolor: '#fdba74',
+                      borderRadius: '8px',
+                      p: 1,
+                      '&:hover': {
+                        bgcolor: '#fb923c',
+                      },
+                      '&.Mui-disabled': {
+                        bgcolor: '#e5e7eb',
+                        color: '#9ca3af',
+                      },
+                    }}
+                    aria-label="Send message"
+                  >
+                    {isSendingMessage ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      <ArrowUpwardIcon sx={{ fontSize: 20, color: 'white' }} />
+                    )}
+                  </IconButton>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        )}
+      </Box>
+    );
   };
 
   return (
@@ -1377,7 +1545,7 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 20 }}
         transition={{ duration: 0.3 }}
-        style={{ height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+        style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
         {renderHeader()}
         {renderContent()}

@@ -90,6 +90,7 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
 
   // State for PathChatDrawer
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
+  const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
 
   // Sync local state with URL parameters for smooth animations
   useEffect(() => {
@@ -244,11 +245,13 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
   // Handle chat drawer
   const handleSendMessage = useCallback((message: string) => {
     console.log('Message sent:', message);
+    setInitialChatMessage(message);
     setChatDrawerOpen(true);
   }, []);
 
   const handleCloseChatDrawer = useCallback(() => {
     setChatDrawerOpen(false);
+    setInitialChatMessage(null);
   }, []);
 
   // Handle drag over
@@ -569,6 +572,7 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
       <PathChatDrawer
         open={chatDrawerOpen}
         onClose={handleCloseChatDrawer}
+        initialMessage={initialChatMessage}
       />
     </>
   );

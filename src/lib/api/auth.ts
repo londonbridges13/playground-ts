@@ -46,7 +46,11 @@ export const authAPI = {
       // Store token in sessionStorage
       sessionStorage.setItem('jwt_access_token', res.data.token);
 
+      // Store user data in localStorage
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+
       console.log('[authAPI] ✅ Token stored in sessionStorage');
+      console.log('[authAPI] User stored in localStorage');
       console.log('[authAPI] Token:', res.data.token);
       console.log('[authAPI] User:', res.data.user);
 

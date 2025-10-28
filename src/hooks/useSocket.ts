@@ -28,6 +28,7 @@ interface UseSocketOptions {
   onStreamStart?: (data: AIStreamStartData) => void;
   onStreamChunk?: (data: AIStreamChunkData) => void;
   onStreamComplete?: (data: AIStreamCompleteData) => void;
+  onConversationMessages?: (messages: SocketMessage[]) => void;
 }
 
 export function useSocket({
@@ -40,6 +41,7 @@ export function useSocket({
   onStreamStart,
   onStreamChunk,
   onStreamComplete,
+  onConversationMessages,
 }: UseSocketOptions) {
   const socketRef = useRef<TypedSocket | null>(null);
   const [connected, setConnected] = useState(false);
@@ -55,6 +57,7 @@ export function useSocket({
   const onStreamStartRef = useRef(onStreamStart);
   const onStreamChunkRef = useRef(onStreamChunk);
   const onStreamCompleteRef = useRef(onStreamComplete);
+  const onConversationMessagesRef = useRef(onConversationMessages);
 
   // Update refs when callbacks change
   useEffect(() => {
@@ -66,7 +69,8 @@ export function useSocket({
     onStreamStartRef.current = onStreamStart;
     onStreamChunkRef.current = onStreamChunk;
     onStreamCompleteRef.current = onStreamComplete;
-  }, [onMessage, onTyping, onStoppedTyping, onError, onConnected, onStreamStart, onStreamChunk, onStreamComplete]);
+    onConversationMessagesRef.current = onConversationMessages;
+  }, [onMessage, onTyping, onStoppedTyping, onError, onConnected, onStreamStart, onStreamChunk, onStreamComplete, onConversationMessages]);
 
   // Initialize socket connection - only depends on token
   useEffect(() => {
@@ -110,10 +114,21 @@ export function useSocket({
       onConnectedRef.current?.(data);
     });
 
+    // Conversation messages (history) - replaces all messages
+    socketRef.current.on('conversation-messages', (data: { messages: SocketMessage[] }) => {
+      console.log('[useSocket] Conversation messages received:', data.messages.length, 'messages');
+      setMessages(data.messages);
+      onConversationMessagesRef.current?.(data.messages);
+    });
+
     // Message events
     socketRef.current.on('new-message', (data: MessageEventData) => {
       console.log('[useSocket] New message received:', data);
-      setMessages((prev) => [...prev, data.message]);
+      // Clear optimistic messages (temp- IDs) when real message arrives
+      setMessages((prev) => {
+        const filtered = prev.filter((msg) => !msg.id.startsWith('temp-'));
+        return [...filtered, data.message];
+      });
       onMessageRef.current?.(data.message);
     });
 
