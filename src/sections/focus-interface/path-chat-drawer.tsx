@@ -535,11 +535,14 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
 
   // Reset sending state when AI response completes
   useEffect(() => {
-    if (streamingMessages.size === 0 && isSendingMessage) {
+    // Check if there are any messages still actively streaming
+    const hasActiveStreaming = Array.from(streamingMessages.values()).some((msg) => msg.isStreaming);
+
+    if (!hasActiveStreaming && isSendingMessage) {
       console.log('[PathChatDrawer] AI response complete, resetting send button');
       setIsSendingMessage(false);
     }
-  }, [streamingMessages]);
+  }, [streamingMessages, isSendingMessage]);
 
   // Cleanup on drawer close
   useEffect(() => {
