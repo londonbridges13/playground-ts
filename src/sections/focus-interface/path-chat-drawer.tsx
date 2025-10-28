@@ -536,9 +536,10 @@ export function PathChatDrawer({ open, onClose, conversationId: propConversation
   // Reset sending state when AI response completes
   useEffect(() => {
     if (streamingMessages.size === 0 && isSendingMessage) {
+      console.log('[PathChatDrawer] AI response complete, resetting send button');
       setIsSendingMessage(false);
     }
-  }, [streamingMessages, isSendingMessage]);
+  }, [streamingMessages]);
 
   // Cleanup on drawer close
   useEffect(() => {
