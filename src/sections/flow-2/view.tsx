@@ -348,8 +348,55 @@ function FlowViewInner({ sx }: Props) {
           label: nodeData.label,
           opacity: 1,
           index: nodes.length, // For animation stagger
+          backgroundImage: nodeData.backgroundImage, // Pass through background image
+          textColor: nodeData.textColor, // Pass through text color
+          textWeight: nodeData.textWeight, // Pass through text weight
+          fontFamily: nodeData.fontFamily, // Pass through font family
         },
       };
+
+      // Add node to the flow
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [screenToFlowPosition, nodes.length]
+  );
+
+  // Handle node creation from spring-based drag (called by PathChatDrawer)
+  const handleCreateNode = useCallback(
+    (clientX: number, clientY: number, nodeData: any) => {
+      console.log('🎨 [FlowView] Creating node at:', clientX, clientY, 'with data:', nodeData);
+
+      // Hexagon dimensions for centering
+      const HEXAGON_WIDTH = 178;
+      const HEXAGON_HEIGHT = 174;
+      const OFFSET_X = 10; // Additional offset to the right
+      const OFFSET_Y = 10; // Additional offset downward
+
+      // Convert screen position to flow position
+      // Offset by half the hexagon size to center it on the cursor, then adjust slightly
+      const position = screenToFlowPosition({
+        x: clientX - HEXAGON_WIDTH / 2 + OFFSET_X,   // Shift left by 89px, then right by 10px
+        y: clientY - HEXAGON_HEIGHT / 2 + OFFSET_Y,  // Shift up by 87px, then down by 10px
+      });
+
+      // Create new node
+      const newNode: Node = {
+        id: `node-${Date.now()}`,
+        type: nodeData.type,
+        position,
+        data: {
+          label: nodeData.label,
+          opacity: 1,
+          index: nodes.length,
+          backgroundImage: nodeData.backgroundImage,
+          textColor: nodeData.textColor,
+          textWeight: nodeData.textWeight,
+          fontFamily: nodeData.fontFamily,
+          showBorder: nodeData.showBorder,
+        },
+      };
+
+      console.log('✅ [FlowView] New node created:', newNode);
 
       // Add node to the flow
       setNodes((nds) => nds.concat(newNode));
@@ -610,6 +657,7 @@ function FlowViewInner({ sx }: Props) {
       <PathChatDrawer
         open={chatDrawerOpen}
         onClose={handleCloseChatDrawer}
+        onCreateNode={handleCreateNode}
       />
     </>
   );

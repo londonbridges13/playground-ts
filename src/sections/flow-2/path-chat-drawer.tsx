@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 
-import { m } from 'motion/react';
+import { m, useSpring } from 'motion/react';
 import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
@@ -45,6 +45,7 @@ const models = [
 type PathChatDrawerProps = {
   open: boolean;
   onClose: () => void;
+  onCreateNode?: (clientX: number, clientY: number, nodeData: any) => void;
 };
 
 // ----------------------------------------------------------------------
@@ -58,60 +59,89 @@ interface Message {
 
 // ----------------------------------------------------------------------
 
-// Standalone Hexagon Component (no React Flow dependencies)
+// Spring configuration for smooth animations
+const SPRING = {
+  type: "spring" as const,
+  stiffness: 400,
+  damping: 40,
+  mass: 0.1,
+};
+
+// Standalone Hexagon Component with spring-based drag animation
 const StandaloneHexagon = ({
   label,
   onDragStart: onDragStartCallback,
   onDragEnd: onDragEndCallback,
+  onCapture,
 }: {
   label: string;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  onCapture?: (data: any) => void;
 }) => {
-  const [isDragging, setIsDragging] = useState(false);
+  const referenceRef = useRef<HTMLDivElement | null>(null);
+  const [flash, setFlash] = useState(false);
+  const mouse = useRef({ x: 0, y: 0 });
 
-  const onDragStart = (event: React.DragEvent) => {
-    setIsDragging(true);
-    // Store node data in the drag event
-    event.dataTransfer.setData(
-      'application/reactflow',
-      JSON.stringify({
+  const capture = () => {
+    setFlash(true);
+    const id = setTimeout(() => {
+      setFlash(false);
+
+      // Get initial position
+      const dimensions = referenceRef?.current?.getBoundingClientRect();
+      if (!dimensions) return;
+
+      // Notify parent with capture data
+      onCapture?.({
         type: 'hexagon',
         label: label,
-      })
-    );
-    event.dataTransfer.effectAllowed = 'move';
+        backgroundImage: '/copy_paste/ocean.jpg',
+        textColor: 'white',
+        textWeight: 'bold',
+        fontFamily: 'Public Sans Variable',
+        showBorder: true,
+        initialPosition: {
+          x: dimensions.x,
+          y: dimensions.y,
+          width: dimensions.width,
+          height: dimensions.height,
+        },
+        mousePosition: mouse.current,
+      });
 
-    // Call parent's drag start handler
-    onDragStartCallback?.();
-  };
-
-  const onDragEnd = () => {
-    setIsDragging(false);
-
-    // Call parent's drag end handler
-    onDragEndCallback?.();
+      onDragStartCallback?.();
+      clearTimeout(id);
+    }, 200);
   };
 
   return (
-    <Box
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      sx={{
+    <m.div
+      ref={referenceRef}
+      onMouseDown={capture}
+      onPointerMove={(e) => {
+        mouse.current = { x: e.clientX, y: e.clientY };
+      }}
+      animate={{
+        filter: flash
+          ? "brightness(1.5) blur(2px) drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.2))"
+          : "brightness(1) blur(0px) drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.2))",
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 600,
+        damping: 60,
+      }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.96 }}
+      style={{
         position: 'relative',
         width: 178,
         height: 174,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        filter: 'drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.2))',
-        cursor: 'grab',
-        opacity: isDragging ? 0.5 : 1,
-        transition: 'opacity 0.2s',
-        '&:active': {
-          cursor: 'grabbing',
-        },
+        cursor: 'copy',
       }}
     >
     {/* SVG with rounded hexagon */}
@@ -127,6 +157,18 @@ const StandaloneHexagon = ({
       }}
     >
       <defs>
+        {/* Image pattern for ocean background */}
+        <pattern id="ocean-pattern-standalone" patternUnits="objectBoundingBox" width="1" height="1">
+          <image
+            xlinkHref="/copy_paste/ocean.jpg"
+            x="0"
+            y="0"
+            width="178"
+            height="174"
+            preserveAspectRatio="xMidYMid slice"
+          />
+        </pattern>
+
         <filter id="round-standalone">
           <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
           <feColorMatrix
@@ -139,9 +181,9 @@ const StandaloneHexagon = ({
         </filter>
       </defs>
 
-      {/* Hexagon fill */}
+      {/* Hexagon fill with ocean image */}
       <path
-        fill="#d0d0d0"
+        fill="url(#ocean-pattern-standalone)"
         d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
         filter="url(#round-standalone)"
       />
@@ -165,12 +207,117 @@ const StandaloneHexagon = ({
         zIndex: 1,
         textAlign: 'center',
         px: 2,
-        fontWeight: 500,
+        fontWeight: 'bold',
+        color: 'white',
+        fontFamily: 'Public Sans Variable',
       }}
     >
       {label}
     </Typography>
-  </Box>
+  </m.div>
+  );
+};
+
+// ----------------------------------------------------------------------
+
+// Floating Hexagon Clone Component
+const FloatingHexagonClone = ({
+  captured,
+  x,
+  y,
+  width,
+  height,
+  label,
+  showBorder = false,
+}: {
+  captured: boolean;
+  x: any;
+  y: any;
+  width: any;
+  height: any;
+  label: string;
+  showBorder?: boolean;
+}) => {
+  return (
+    <m.div
+      className="fixed select-none pointer-events-none"
+      aria-hidden
+      initial={false}
+      animate={{
+        opacity: captured ? 1 : 0,
+        filter: captured ? "blur(0px)" : "blur(2px)",
+      }}
+      style={{
+        width,
+        height,
+        x,
+        y,
+        boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+        zIndex: 9999,
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 320,
+        damping: 40,
+      }}
+    >
+      {/* SVG with rounded hexagon */}
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 178 174"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        <defs>
+          {/* Image pattern for ocean background */}
+          <pattern id="ocean-pattern-floating" patternUnits="objectBoundingBox" width="1" height="1">
+            <image
+              xlinkHref="/copy_paste/ocean.jpg"
+              x="0"
+              y="0"
+              width="178"
+              height="174"
+              preserveAspectRatio="xMidYMid slice"
+            />
+          </pattern>
+
+          <filter id="round-floating">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+              result="goo"
+            />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          </filter>
+        </defs>
+
+        {/* Hexagon fill with ocean image */}
+        <path
+          fill="url(#ocean-pattern-floating)"
+          d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
+          filter="url(#round-floating)"
+        />
+
+        {/* Hexagon border - conditionally rendered */}
+        {showBorder && (
+          <path
+            fill="none"
+            stroke="white"
+            strokeWidth="4"
+            strokeOpacity="1.0"
+            d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
+            filter="url(#round-floating)"
+          />
+        )}
+      </svg>
+    </m.div>
   );
 };
 
@@ -305,7 +452,7 @@ const MiniHexagon = ({
 
 // ----------------------------------------------------------------------
 
-export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
+export function PathChatDrawer({ open, onClose, onCreateNode }: PathChatDrawerProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'search'>('chat');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -324,6 +471,16 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const menuOpen = Boolean(anchorEl);
+
+  // Spring-based drag state
+  const [captured, setCaptured] = useState(false);
+  const [capturedData, setCapturedData] = useState<any>(null);
+  const mouse = useRef({ x: 0, y: 0 });
+
+  const x = useSpring(0, SPRING);
+  const y = useSpring(0, SPRING);
+  const width = useSpring(0, SPRING);
+  const height = useSpring(0, SPRING);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -397,7 +554,114 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
     handleMenuClose();
   };
 
-  // Start timer on drag start
+  // Handle hexagon capture (copy)
+  const handleCapture = useCallback((data: any) => {
+    console.log('🎯 [Hexagon Capture] Data:', data);
+    setCapturedData(data);
+
+    // Set initial position and size IMMEDIATELY without animation using .jump()
+    // This prevents the clone from animating from (0,0) to the hexagon position
+    if (data.initialPosition) {
+      x.jump(data.initialPosition.x);
+      y.jump(data.initialPosition.y);
+      width.jump(data.initialPosition.width);
+      height.jump(data.initialPosition.height);
+    }
+
+    // Now show the clone at the correct position
+    setCaptured(true);
+
+    // Shrink and move to cursor WITH spring animation
+    setTimeout(() => {
+      width.set(60);
+      height.set(58);
+      x.set(data.mousePosition.x + 16);
+      y.set(data.mousePosition.y + 16);
+    }, 200);
+
+    // Start 0.5s timer to close drawer
+    dragTimerRef.current = setTimeout(() => {
+      console.log('✅ [Hexagon Drag] 0.5s elapsed - closing drawer now');
+      onClose();
+      dragTimerRef.current = null;
+    }, 500);
+  }, [onClose, x, y, width, height]);
+
+  // Handle paste (drop)
+  const handlePaste = useCallback((clientX: number, clientY: number) => {
+    console.log('🏁 [Hexagon Paste] at position:', clientX, clientY);
+
+    // Create the node at the click position
+    if (capturedData && onCreateNode) {
+      console.log('✅ [Hexagon Paste] Creating node with data:', capturedData);
+      onCreateNode(clientX, clientY, {
+        type: capturedData.type,
+        label: capturedData.label,
+        backgroundImage: capturedData.backgroundImage,
+        textColor: capturedData.textColor,
+        textWeight: capturedData.textWeight,
+        fontFamily: capturedData.fontFamily,
+        showBorder: capturedData.showBorder,
+      });
+    }
+
+    // Clean up state
+    setCaptured(false);
+    setCapturedData(null);
+    sessionStorage.removeItem('capturedHexagonData');
+
+    // Clear timer if drag ended before 0.5s
+    if (dragTimerRef.current) {
+      console.log('⏹️ [Hexagon Drag] Clearing timer (drag ended early)');
+      clearTimeout(dragTimerRef.current);
+      dragTimerRef.current = null;
+    }
+  }, [capturedData, onCreateNode]);
+
+  // Handle canceling the drag with Escape key
+  const handleCancelDrag = useCallback(() => {
+    console.log('❌ [Hexagon Drag] Cancelled with Escape key');
+
+    // Clean up state
+    setCaptured(false);
+    setCapturedData(null);
+    sessionStorage.removeItem('capturedHexagonData');
+
+    // Clear timer if active
+    if (dragTimerRef.current) {
+      console.log('⏹️ [Hexagon Drag] Clearing timer (drag cancelled)');
+      clearTimeout(dragTimerRef.current);
+      dragTimerRef.current = null;
+    }
+
+    // Reset spring values
+    x.set(0);
+    y.set(0);
+    width.set(0);
+    height.set(0);
+  }, [x, y, width, height]);
+
+  // Listen for Escape key to cancel drag
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && captured) {
+        event.preventDefault();
+        handleCancelDrag();
+      }
+    };
+
+    // Add event listener when captured
+    if (captured) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [captured, handleCancelDrag]);
+
+  // Start timer on drag start (legacy support)
   const handleDragStart = useCallback(() => {
     isDraggingRef.current = true;
     console.log('🎯 [Hexagon Drag] Started - drawer will close in 0.5s');
@@ -411,7 +675,7 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
     }, 500);
   }, [onClose, activeTab]);
 
-  // Clear timer on drag end
+  // Clear timer on drag end (legacy support)
   const handleDragEnd = useCallback(() => {
     isDraggingRef.current = false;
     console.log('🏁 [Hexagon Drag] Ended');
@@ -633,6 +897,7 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
               label="Current Goal"
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              onCapture={handleCapture}
             />
           </Box>
         </CardContent>
@@ -1050,42 +1315,80 @@ export function PathChatDrawer({ open, onClose }: PathChatDrawerProps) {
   };
 
   return (
-    <Drawer
-      anchor="right"
-      open={open}
-      onClose={onClose}
-      slotProps={{
-        backdrop: {
-          sx: {
-            backdropFilter: 'blur(8px)',
-            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    <>
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={onClose}
+        slotProps={{
+          backdrop: {
+            sx: {
+              backdropFilter: 'blur(8px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            },
           },
-        },
-        paper: {
-          sx: {
-            width: 1,
-            maxWidth: 480,
-            m: 2,
-            borderRadius: 2,
-            maxHeight: 'calc(100vh - 32px)',
-            bgcolor: 'background.paper',
-            boxShadow: '-40px 40px 80px -8px rgba(0, 0, 0, 0.24)',
+          paper: {
+            sx: {
+              width: 1,
+              maxWidth: 480,
+              m: 2,
+              borderRadius: 2,
+              maxHeight: 'calc(100vh - 32px)',
+              bgcolor: 'background.paper',
+              boxShadow: '-40px 40px 80px -8px rgba(0, 0, 0, 0.24)',
+            },
           },
-        },
-      }}
-    >
-      <m.div
-        ref={drawerRef}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 20 }}
-        transition={{ duration: 0.3 }}
-        style={{ height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+        }}
       >
-        {renderHeader()}
-        {renderContent()}
-      </m.div>
-    </Drawer>
+        <m.div
+          ref={drawerRef}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ duration: 0.3 }}
+          style={{ height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+        >
+          {renderHeader()}
+          {renderContent()}
+        </m.div>
+      </Drawer>
+
+      {/* Floating hexagon clone that follows cursor */}
+      <Box
+        onPointerMove={(e) => {
+          mouse.current = { x: e.clientX, y: e.clientY };
+          if (captured) {
+            const newX = e.clientX + 16;
+            const newY = e.clientY + 16;
+            x.set(newX);
+            y.set(newY);
+          }
+        }}
+        onClick={(e) => {
+          if (captured) {
+            handlePaste(e.clientX, e.clientY);
+          }
+        }}
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          pointerEvents: captured ? 'auto' : 'none',
+          zIndex: 9998,
+        }}
+      >
+        {capturedData && (
+          <FloatingHexagonClone
+            captured={captured}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            label={capturedData.label}
+            showBorder={capturedData.showBorder}
+          />
+        )}
+      </Box>
+    </>
   );
 }
 

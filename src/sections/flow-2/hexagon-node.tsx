@@ -12,6 +12,11 @@ export const HexagonNode = memo(({ data, isConnectable, selected }: NodeProps) =
   const isExiting = data.isExiting ?? false;
   const exitAnimationType = data.exitAnimationType ?? 'slide';
 
+  // Generate a safe ID for the pattern (remove spaces and special characters)
+  const patternId = data.backgroundImage
+    ? `ocean-pattern-${data.label?.replace(/\s+/g, '-') || 'default'}`
+    : null;
+
   // Define exit animations
   const exitAnimations = {
     slide: {
@@ -73,6 +78,20 @@ export const HexagonNode = memo(({ data, isConnectable, selected }: NodeProps) =
         }}
       >
         <defs>
+          {/* Conditionally add image pattern if backgroundImage is provided */}
+          {patternId && (
+            <pattern id={patternId} patternUnits="objectBoundingBox" width="1" height="1">
+              <image
+                xlinkHref={data.backgroundImage}
+                x="0"
+                y="0"
+                width="178"
+                height="174"
+                preserveAspectRatio="xMidYMid slice"
+              />
+            </pattern>
+          )}
+
           <filter id="round">
             <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
             <feColorMatrix
@@ -85,22 +104,24 @@ export const HexagonNode = memo(({ data, isConnectable, selected }: NodeProps) =
           </filter>
         </defs>
 
-        {/* Hexagon fill */}
+        {/* Hexagon fill - use image pattern if available, otherwise gray */}
         <path
-          fill="#d0d0d0"
+          fill={patternId ? `url(#${patternId})` : "#d0d0d0"}
           d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
           filter="url(#round)"
         />
 
-        {/* Hexagon border */}
-        <path
-          fill="none"
-          stroke="white"
-          strokeWidth="4"
-          strokeOpacity="1.0"
-          d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
-          filter="url(#round)"
-        />
+        {/* Hexagon border - conditionally rendered */}
+        {data.showBorder !== false && (
+          <path
+            fill="none"
+            stroke="white"
+            strokeWidth="4"
+            strokeOpacity="1.0"
+            d="M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z"
+            filter="url(#round)"
+          />
+        )}
       </svg>
 
       {/* Content */}
@@ -111,7 +132,9 @@ export const HexagonNode = memo(({ data, isConnectable, selected }: NodeProps) =
           zIndex: 1,
           textAlign: 'center',
           px: 2,
-          fontWeight: 500,
+          fontWeight: data.textWeight || 500,
+          color: data.textColor || 'inherit',
+          fontFamily: data.fontFamily || 'Public Sans Variable',
         }}
       >
         {data.label}
