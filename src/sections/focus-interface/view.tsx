@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+
+import { useBoolean } from 'minimal-shared/hooks';
 
 import '@xyflow/react/dist/style.css';
 
@@ -13,11 +15,35 @@ import { ReactFlow, Background, addEdge, applyEdgeChanges, applyNodeChanges, Rea
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import Snackbar from '@mui/material/Snackbar';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 
+import type { EntityTypeName } from 'src/types/entities';
+
 import { Iconify } from 'src/components/iconify';
 import { useFocusInterface } from 'src/hooks';
+
+import { EntityTabs } from 'src/sections/entities/components/entity-tabs';
+import { AtlasForm } from 'src/sections/entities/forms/atlas-form';
+import { PathForm } from 'src/sections/entities/forms/path-form';
+import { MilestoneForm } from 'src/sections/entities/forms/milestone-form';
+import { HorizonForm } from 'src/sections/entities/forms/horizon-form';
+import { PathwayForm } from 'src/sections/entities/forms/pathway-form';
+import { StoryForm } from 'src/sections/entities/forms/story-form';
+import { InsightForm } from 'src/sections/entities/forms/insight-form';
+import { ArchetypeForm } from 'src/sections/entities/forms/archetype-form';
+import { PolarityForm } from 'src/sections/entities/forms/polarity-form';
+import { StepsForm } from 'src/sections/entities/forms/steps-form';
+import { BasisForm } from 'src/sections/entities/forms/basis-form';
+import { FocusForm } from 'src/sections/entities/forms/focus-form';
+import { DiscoveryForm } from 'src/sections/entities/forms/discovery-form';
 
 import { CustomAnimatedEdge } from './custom-edge';
 import { FloatingTextInput } from './floating-text-input';
@@ -91,6 +117,56 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
   // State for PathChatDrawer
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
+
+  // State for Add Document dialog
+  const addDocumentDialog = useBoolean();
+  const descriptionElementRef = useRef<HTMLElement>(null);
+
+  // Entity form state
+  const [entityTab, setEntityTab] = useState<EntityTypeName>('discovery');
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({ open: false, message: '', severity: 'success' });
+
+  // Get userId from localStorage
+  const [userId, setUserId] = useState<string>('');
+  useEffect(() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        setUserId(user.id || '');
+      }
+    } catch (err) {
+      console.error('Error parsing user from localStorage:', err);
+    }
+  }, []);
+
+  // Entity form handlers
+  const handleEntitySuccess = useCallback((message: string) => {
+    setSnackbar({ open: true, message, severity: 'success' });
+    addDocumentDialog.onFalse(); // Close dialog on success
+  }, [addDocumentDialog]);
+
+  const handleEntityError = useCallback((message: string) => {
+    setSnackbar({ open: true, message, severity: 'error' });
+  }, []);
+
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, []);
+
+  // Focus description element when dialog opens
+  useEffect(() => {
+    if (addDocumentDialog.value) {
+      const { current: descriptionElement } = descriptionElementRef;
+      if (descriptionElement) {
+        descriptionElement.focus();
+      }
+    }
+  }, [addDocumentDialog.value]);
 
   // Sync local state with URL parameters for smooth animations
   useEffect(() => {
@@ -253,6 +329,40 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
     setChatDrawerOpen(false);
     setInitialChatMessage(null);
   }, []);
+
+  // Render entity form based on selected tab
+  const renderEntityForm = useCallback(() => {
+    if (!userId) {
+      return (
+        <Alert severity="warning">
+          No user found. Please log in first.
+        </Alert>
+      );
+    }
+
+    const commonProps = {
+      userId,
+      onSuccess: () => handleEntitySuccess(`${entityTab} created successfully!`),
+      onError: (err: Error) => handleEntityError(err.message),
+    };
+
+    switch (entityTab) {
+      case 'atlas': return <AtlasForm {...commonProps} />;
+      case 'path': return <PathForm {...commonProps} />;
+      case 'milestone': return <MilestoneForm {...commonProps} />;
+      case 'horizon': return <HorizonForm {...commonProps} />;
+      case 'pathway': return <PathwayForm {...commonProps} />;
+      case 'story': return <StoryForm {...commonProps} />;
+      case 'insight': return <InsightForm {...commonProps} />;
+      case 'archetype': return <ArchetypeForm {...commonProps} />;
+      case 'polarity': return <PolarityForm {...commonProps} />;
+      case 'steps': return <StepsForm {...commonProps} />;
+      case 'basis': return <BasisForm {...commonProps} />;
+      case 'focus': return <FocusForm {...commonProps} />;
+      case 'discovery': return <DiscoveryForm {...commonProps} />;
+      default: return null;
+    }
+  }, [userId, entityTab, handleEntitySuccess, handleEntityError]);
 
   // Handle drag over
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -466,7 +576,7 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
           zIndex: 10,
         }}
       >
-        {/* Floating button - Bottom Left */}
+        {/* Floating button - Bottom Left (Radial Timeline) */}
         <Fab
           color="primary"
           aria-label="open radial timeline"
@@ -484,6 +594,21 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
           }}
         >
           <Iconify icon="lucide:loader" width={24} />
+        </Fab>
+
+        {/* Add Document FAB - Bottom Left (right of radial button) */}
+        <Fab
+          color="primary"
+          aria-label="add document"
+          sx={{
+            position: 'absolute',
+            bottom: 104,
+            left: 72, // 56px FAB width + 16px spacing
+            zIndex: 11,
+          }}
+          onClick={addDocumentDialog.onTrue}
+        >
+          <Iconify icon="solar:document-add-broken" width={24} />
         </Fab>
 
         {/* Floating Text Input */}
@@ -574,6 +699,48 @@ function FocusInterfaceViewInner({ focusId, sx }: Props) {
         onClose={handleCloseChatDrawer}
         initialMessage={initialChatMessage}
       />
+
+      {/* Add Entity Dialog - Scrolling paper dialog */}
+      <Dialog
+        open={addDocumentDialog.value}
+        onClose={addDocumentDialog.onFalse}
+        scroll="paper"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 2 }}>Add Entity</DialogTitle>
+
+        <DialogContent dividers>
+          <Box ref={descriptionElementRef} tabIndex={-1}>
+            {/* Entity Type Selector */}
+            <EntityTabs currentTab={entityTab} onTabChange={setEntityTab} />
+
+            {/* Entity Form */}
+            {renderEntityForm()}
+          </Box>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={addDocumentDialog.onFalse}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for entity form notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

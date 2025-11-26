@@ -89,4 +89,12 @@ export const endpoints = {
     details: (id: string) => `/api/conversations/${id}`,
     messages: (id: string) => `/api/conversations/${id}/messages`,
   },
+  // Entity CRUD endpoints
+  entities: {
+    list: (type: string) => `/api/entities/${type}`,
+    get: (type: string, id: string) => `/api/entities/${type}/${id}`,
+    create: (type: string) => `/api/entities/${type}`,
+    update: (type: string, id: string) => `/api/entities/${type}/${id}`,
+    delete: (type: string, id: string) => `/api/entities/${type}/${id}`,
+  },
 } as const;

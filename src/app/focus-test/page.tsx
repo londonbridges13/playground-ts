@@ -27,7 +27,7 @@ import { FocusInterfaceView } from 'src/sections/focus-interface';
  */
 export default function FocusTestPage() {
   // Test Focus ID from backend
-  const testFocusId = 'cmh3inmsa00072gdtkwiherjh';
+  const testFocusId = 'cmifc0r8y00012gdvbwqlyphw';
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>

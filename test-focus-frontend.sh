@@ -3,7 +3,7 @@
 # Focus Interface Frontend Test Script
 # Tests the Focus API endpoints with the test Focus ID
 
-FOCUS_ID="cmh3inmsa00072gdtkwiherjh"
+FOCUS_ID="cmifc0r8y00012gdvbwqlyphw"
 BASE_URL="http://localhost:3000"
 
 echo "🧪 Focus Interface Frontend Test Script"
