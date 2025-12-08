@@ -1,22 +1,27 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
   Background,
   BackgroundVariant,
   PanOnScrollMode,
+  useReactFlow,
 } from '@xyflow/react';
 import type { Node, Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
+import Box from '@mui/material/Box';
+
 import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
+import { AnimatedList, NotificationItem } from './components/animated-list';
+import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
 import { useCenteredNodes } from './hooks/use-centered-nodes';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
-import type { V3InterfaceProps } from './types';
+import type { V3InterfaceProps, BackgroundType } from './types';
 
 // Node types - defined outside component, memoized
 const nodeTypes = { circular: CircularNode, hexagon: HexagonNode, rectangle: RectangleNode };
@@ -312,14 +317,190 @@ const DEFAULT_NODES: Node[] = [
       textColor: '#ffffff',
     },
   },
+  // ============================================
+  // MAGIC BORDER DEMO NODES
+  // ============================================
+  // Rectangle with Magic Border
+  {
+    id: 'rect-magic-border',
+    type: 'rectangle',
+    position: { x: -250, y: 750 },
+    data: {
+      label: 'Magic Border',
+      index: 14,
+      width: 180,
+      height: 100,
+      borderRadius: 20,
+      backgroundColor: '#1a1a2e',
+      magicBorder: true,
+      magicGradientSize: 200,
+      magicGradientFrom: '#9E7AFF',
+      magicGradientTo: '#FE8BBB',
+      borderWidth: 3,
+      textColor: '#ffffff',
+    },
+  },
+  // Hexagon with Magic Border
+  {
+    id: 'hex-magic-border',
+    type: 'hexagon',
+    position: { x: 0, y: 550 },
+    data: {
+      label: 'Magic Hex',
+      index: 15,
+      meshGradient: true,
+      meshColors: MESH_GRADIENT_PRESETS.aurora,
+      meshSpeed: 0.8,
+      meshAmplitude: 50,
+      grainAmount: 20,
+      magicBorder: true,
+      magicGradientSize: 200,
+      magicGradientFrom: '#00D9FF',
+      magicGradientTo: '#FF00E5',
+      borderWidth: 4,
+      textColor: '#ffffff',
+    },
+  },
+  // Circular with Magic Border
+  {
+    id: 'circle-magic-border',
+    type: 'circular',
+    position: { x: 250, y: 750 },
+    data: {
+      label: 'Magic',
+      description: 'Hover me!',
+      size: 120,
+      meshGradient: true,
+      meshColors: MESH_GRADIENT_PRESETS.cosmic,
+      meshSpeed: 1.0,
+      meshAmplitude: 50,
+      grainAmount: 15,
+      magicBorder: true,
+      magicGradientSize: 180,
+      magicGradientFrom: '#FFD700',
+      magicGradientTo: '#FF6B6B',
+      borderWidth: 3,
+      entranceAnimation: 'scale',
+      index: 16,
+    },
+  },
 ];
 
-function V3InterfaceViewInner({ initialNodes = DEFAULT_NODES, initialEdges = [] }: V3InterfaceProps) {
+function V3InterfaceViewInner({
+  initialNodes = DEFAULT_NODES,
+  initialEdges = [],
+  backgroundType = 'dots',
+  gridSquareSize = 40,
+}: V3InterfaceProps) {
   const centeredNodes = useCenteredNodes(initialNodes);
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { getViewport } = useReactFlow();
+
+  // State for hovered grid square
+  const [hoveredSquare, setHoveredSquare] = useState<number | null>(null);
+
+  // Handle mouse move on the pane to detect which grid square is hovered
+  const handlePaneMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (backgroundType !== 'interactive-grid' || !containerRef.current) {
+        return;
+      }
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const viewport = getViewport();
+      const squareIndex = calculateHoveredSquare(
+        event.clientX,
+        event.clientY,
+        rect,
+        viewport,
+        gridSquareSize
+      );
+      setHoveredSquare(squareIndex);
+    },
+    [backgroundType, getViewport, gridSquareSize]
+  );
+
+  // Clear hover when mouse leaves the pane
+  const handlePaneMouseLeave = useCallback(() => {
+    setHoveredSquare(null);
+  }, []);
+
+  // Render the appropriate background based on backgroundType
+  const renderBackground = () => {
+    switch (backgroundType) {
+      case 'interactive-grid':
+        return (
+          <InteractiveGridPattern
+            squareSize={gridSquareSize}
+            strokeColor="rgba(150, 150, 150, 0.3)"
+            hoverFillColor="rgba(150, 150, 150, 0.15)"
+            hoveredSquare={hoveredSquare}
+          />
+        );
+      case 'lines':
+        return (
+          <Background
+            variant={BackgroundVariant.Lines}
+            gap={gridSquareSize}
+            color="rgba(150, 150, 150, 0.3)"
+          />
+        );
+      case 'cross':
+        return (
+          <Background
+            variant={BackgroundVariant.Cross}
+            gap={gridSquareSize}
+            color="rgba(150, 150, 150, 0.3)"
+          />
+        );
+      case 'dots':
+      default:
+        return (
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="rgba(150, 150, 150, 1)"
+          />
+        );
+    }
+  };
+
+  // Sample notifications for the animated list
+  const notifications = [
+    {
+      name: 'Node Created',
+      description: 'Emerald hexagon added to canvas',
+      icon: '✨',
+      color: '#00C9A7',
+      time: 'just now',
+    },
+    {
+      name: 'Connection Made',
+      description: 'Linked Focus to Ocean node',
+      icon: '🔗',
+      color: '#FFB800',
+      time: '2m ago',
+    },
+    {
+      name: 'Style Applied',
+      description: 'Magic border enabled on Ruby',
+      icon: '🎨',
+      color: '#FF3D71',
+      time: '5m ago',
+    },
+    {
+      name: 'Mesh Gradient',
+      description: 'Aurora colors applied to center',
+      icon: '🌈',
+      color: '#9E7AFF',
+      time: '8m ago',
+    },
+  ];
 
   return (
-    <CanvasContainer>
+    <CanvasContainer ref={containerRef}>
       <SmoothCursor />
       <ReactFlow
         nodes={centeredNodes}
@@ -334,14 +515,38 @@ function V3InterfaceViewInner({ initialNodes = DEFAULT_NODES, initialEdges = [] 
         minZoom={0.5}
         maxZoom={2}
         preventScrolling
+        onPaneMouseMove={handlePaneMouseMove}
+        onPaneMouseLeave={handlePaneMouseLeave}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="rgba(150, 150, 150, 0.5)"
-        />
+        {renderBackground()}
       </ReactFlow>
+
+      {/* Animated List - Lower Right Corner */}
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          width: 320,
+          maxHeight: 400,
+          overflow: 'hidden',
+          zIndex: 100,
+          pointerEvents: 'none',
+        }}
+      >
+        <AnimatedList delay={1500}>
+          {notifications.map((notification, idx) => (
+            <NotificationItem
+              key={idx}
+              name={notification.name}
+              description={notification.description}
+              icon={notification.icon}
+              color={notification.color}
+              time={notification.time}
+            />
+          ))}
+        </AnimatedList>
+      </Box>
     </CanvasContainer>
   );
 }

@@ -8,6 +8,8 @@ import { m } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
+import { MagicHexBorder } from '../components/magic-border';
+
 // ----------------------------------------------------------------------
 // Marble/Bauhaus Background Component
 // ----------------------------------------------------------------------
@@ -254,7 +256,7 @@ const HEX_PATH = 'M89 10 L160 50 L160 124 L89 164 L18 124 L18 50 Z';
 // ----------------------------------------------------------------------
 
 export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProps) => {
-  const nodeIndex = data.index ?? 0;
+  const nodeIndex = (data.index as number) ?? 0;
   const isExiting = data.isExiting ?? false;
   const exitAnimationType = (data.exitAnimationType as 'slide' | 'shuffle') ?? 'slide';
 
@@ -284,6 +286,12 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   const borderWidth = (data.borderWidth as number) ?? 4;
   const borderColor = (data.borderColor as string) ?? 'rgba(255, 255, 255, 0.5)';
 
+  // Magic Border
+  const magicBorder = data.magicBorder ?? false;
+  const magicGradientSize = (data.magicGradientSize as number) ?? 200;
+  const magicGradientFrom = (data.magicGradientFrom as string) ?? '#9E7AFF';
+  const magicGradientTo = (data.magicGradientTo as string) ?? '#FE8BBB';
+
   // Text
   const textColor = (data.textColor as string) ?? '#000000';
 
@@ -292,6 +300,7 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   const grainFilterId = useMemo(() => `hex-grain-${id}`, [id]);
   const roundFilterId = useMemo(() => `hex-round-${id}`, [id]);
   const marbleFilterId = useMemo(() => `hex-marble-${id}`, [id]);
+  const magicBorderId = useMemo(() => `hex-magic-border-${id}`, [id]);
 
   // Exit animations
   const exitAnimations = {
@@ -440,28 +449,39 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
           </svg>
         )}
 
-        {/* SVG Hexagon Border - rendered on top */}
-        <svg
-          width="178"
-          height="174"
-          viewBox="0 0 178 174"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            pointerEvents: 'none',
-            zIndex: 10,
-          }}
-        >
-          <path
-            fill="none"
-            stroke="white"
-            strokeWidth={borderWidth}
-            strokeOpacity={1.0}
-            d={HEX_PATH}
-            filter={`url(#${roundFilterId})`}
+        {/* SVG Hexagon Border - Magic or Static */}
+        {magicBorder ? (
+          <MagicHexBorder
+            borderWidth={borderWidth}
+            gradientSize={magicGradientSize}
+            gradientFrom={magicGradientFrom}
+            gradientTo={magicGradientTo}
+            hexPath={HEX_PATH}
+            filterId={magicBorderId}
           />
-        </svg>
+        ) : (
+          <svg
+            width="178"
+            height="174"
+            viewBox="0 0 178 174"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}
+          >
+            <path
+              fill="none"
+              stroke="white"
+              strokeWidth={borderWidth}
+              strokeOpacity={1.0}
+              d={HEX_PATH}
+              filter={`url(#${roundFilterId})`}
+            />
+          </svg>
+        )}
 
         {/* Content */}
         <Typography
@@ -475,7 +495,7 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
             color: textColor,
           }}
         >
-          {data.label}
+          {data.label as string}
         </Typography>
 
         {/* Connection Handles */}

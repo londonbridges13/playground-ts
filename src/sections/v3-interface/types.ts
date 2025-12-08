@@ -53,6 +53,12 @@ export interface CircularNodeData {
   doubleRing?: boolean;
   ringGap?: number;
 
+  // Magic Border (mouse-following gradient)
+  magicBorder?: boolean;
+  magicGradientSize?: number;
+  magicGradientFrom?: string;
+  magicGradientTo?: string;
+
   // Glass Effect
   glassEffect?: boolean;
   glassBlur?: number;
@@ -162,11 +168,21 @@ export const MESH_GRADIENT_PRESETS = {
 };
 
 // ----------------------------------------------------------------------
+// Background Configuration
+// ----------------------------------------------------------------------
+
+export type BackgroundType = 'dots' | 'lines' | 'cross' | 'interactive-grid';
+
+// ----------------------------------------------------------------------
 // V3 Interface Props
 // ----------------------------------------------------------------------
 
 export interface V3InterfaceProps {
   initialNodes?: Node[];
   initialEdges?: Edge[];
+  backgroundType?: BackgroundType;
+  // Interactive grid options
+  gridSquareSize?: number;
+  gridSquares?: [number, number];
 }
 

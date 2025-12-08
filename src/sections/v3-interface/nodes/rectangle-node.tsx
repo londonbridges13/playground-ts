@@ -8,6 +8,8 @@ import { m } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
+import { MagicBorder } from '../components/magic-border';
+
 // ----------------------------------------------------------------------
 // Grain Overlay Component
 // ----------------------------------------------------------------------
@@ -89,6 +91,12 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
   // Border
   const borderWidth = (data.borderWidth as number) ?? 4;
   const borderColor = (data.borderColor as string) ?? 'rgba(255, 255, 255, 0.5)';
+
+  // Magic Border
+  const magicBorder = data.magicBorder ?? false;
+  const magicGradientSize = (data.magicGradientSize as number) ?? 200;
+  const magicGradientFrom = (data.magicGradientFrom as string) ?? '#9E7AFF';
+  const magicGradientTo = (data.magicGradientTo as string) ?? '#FE8BBB';
 
   // Text
   const textColor = (data.textColor as string) ?? '#000000';
@@ -178,17 +186,29 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
           />
         )}
 
-        {/* Border */}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: `${borderRadius}px`,
-            border: `${borderWidth}px solid white`,
-            pointerEvents: 'none',
-            zIndex: 10,
-          }}
-        />
+        {/* Border - Magic or Static */}
+        {magicBorder ? (
+          <MagicBorder
+            width={width}
+            height={height}
+            borderRadius={borderRadius}
+            borderWidth={borderWidth}
+            gradientSize={magicGradientSize}
+            gradientFrom={magicGradientFrom}
+            gradientTo={magicGradientTo}
+          />
+        ) : (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: `${borderRadius}px`,
+              border: `${borderWidth}px solid white`,
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}
+          />
+        )}
 
         {/* Content */}
         <Typography
@@ -202,7 +222,7 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
             color: textColor,
           }}
         >
-          {data.label}
+          {data.label as string}
         </Typography>
 
         {/* Connection Handles */}

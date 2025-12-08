@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
 import type { CircularNodeData, GlowIntensity, ShadowType } from '../types';
+import { MagicCircleBorder } from '../components/magic-border';
 
 // ----------------------------------------------------------------------
 // Constants
@@ -627,6 +628,11 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
     borderAnimated = false,
     doubleRing = false,
     ringGap = 8,
+    // Magic Border
+    magicBorder = false,
+    magicGradientSize = 200,
+    magicGradientFrom = '#9E7AFF',
+    magicGradientTo = '#FE8BBB',
     glowEnabled = false,
     glowColor = 'rgba(99, 102, 241, 0.5)',
     glowPulse = false,
@@ -816,6 +822,17 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
         />
       )}
 
+      {/* Magic Border */}
+      {magicBorder && (
+        <MagicCircleBorder
+          size={size}
+          borderWidth={borderWidth}
+          gradientSize={magicGradientSize}
+          gradientFrom={magicGradientFrom}
+          gradientTo={magicGradientTo}
+        />
+      )}
+
       {/* Main Circle */}
       <Box
         sx={{
@@ -823,7 +840,7 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
           height: size,
           borderRadius: '50%',
           background: meshGradient ? 'transparent' : background,
-          outline: borderGradient ? 'none' : `${borderWidth}px solid ${borderColor}`,
+          outline: (borderGradient || magicBorder) ? 'none' : `${borderWidth}px solid ${borderColor}`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
