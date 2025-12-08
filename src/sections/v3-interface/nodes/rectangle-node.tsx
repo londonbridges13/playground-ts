@@ -101,6 +101,9 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
   // Text
   const textColor = (data.textColor as string) ?? '#000000';
 
+  // Shine Effect
+  const shine = data.shine ?? false;
+
   // Unique IDs for filters
   const grainFilterId = useMemo(() => `rect-grain-${id}`, [id]);
 
@@ -173,6 +176,25 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
                 }),
           }}
         />
+
+        {/* Shine Effect Overlay */}
+        {shine && (
+          <m.div
+            initial={{ x: '-100%' }}
+            animate={{ x: '200%' }}
+            transition={{ duration: 0.8, ease: 'easeInOut' }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '50%',
+              height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+              pointerEvents: 'none',
+              zIndex: 100,
+            }}
+          />
+        )}
 
         {/* Grain Overlay */}
         {grainAmount > 0 && (

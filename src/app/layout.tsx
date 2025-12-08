@@ -4,7 +4,7 @@ import type { Metadata, Viewport } from 'next';
 
 import InitColorSchemeScript from '@mui/material/InitColorSchemeScript';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import { Toaster } from 'sonner';
+
 
 import { CONFIG } from 'src/global-config';
 import { themeConfig, ThemeProvider, primary as primaryColor } from 'src/theme';
@@ -80,7 +80,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
                 <MotionLazy>
                   <ProgressBar />
                   <SettingsDrawer defaultSettings={defaultSettings} />
-                  <Toaster position="top-right" richColors />
+
                   {children}
                 </MotionLazy>
               </ThemeProvider>

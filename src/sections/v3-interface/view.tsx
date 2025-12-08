@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback, useRef } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -14,9 +14,11 @@ import '@xyflow/react/dist/style.css';
 
 import Box from '@mui/material/Box';
 
+import { toast, Snackbar } from 'src/components/snackbar';
+
 import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
-import { AnimatedList, NotificationItem } from './components/animated-list';
+import { FloatingTextInput } from './components/floating-text-input';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
 import { useCenteredNodes } from './hooks/use-centered-nodes';
@@ -392,13 +394,42 @@ function V3InterfaceViewInner({
   backgroundType = 'dots',
   gridSquareSize = 40,
 }: V3InterfaceProps) {
-  const centeredNodes = useCenteredNodes(initialNodes);
+  const baseCenteredNodes = useCenteredNodes(initialNodes);
+  const [nodes, setNodes] = useState<Node[]>(baseCenteredNodes);
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const { getViewport } = useReactFlow();
 
+  // Update nodes when baseCenteredNodes changes
+  useEffect(() => {
+    setNodes(baseCenteredNodes);
+  }, [baseCenteredNodes]);
+
   // State for hovered grid square
   const [hoveredSquare, setHoveredSquare] = useState<number | null>(null);
+
+  // Handle sending a message - triggers shine effect on all nodes
+  const handleSendMessage = useCallback((message: string) => {
+    toast.info('Message sent', { description: message });
+
+    // Trigger shine on all nodes
+    setNodes(currentNodes =>
+      currentNodes.map(n => ({
+        ...n,
+        data: { ...n.data, shine: true },
+      }))
+    );
+
+    // Reset shine after animation completes
+    setTimeout(() => {
+      setNodes(currentNodes =>
+        currentNodes.map(n => ({
+          ...n,
+          data: { ...n.data, shine: false },
+        }))
+      );
+    }, 1000);
+  }, []);
 
   // Handle mouse move on the pane to detect which grid square is hovered
   const handlePaneMouseMove = useCallback(
@@ -467,43 +498,53 @@ function V3InterfaceViewInner({
     }
   };
 
-  // Sample notifications for the animated list
-  const notifications = [
-    {
-      name: 'Node Created',
-      description: 'Emerald hexagon added to canvas',
-      icon: '✨',
-      color: '#00C9A7',
-      time: 'just now',
-    },
-    {
-      name: 'Connection Made',
-      description: 'Linked Focus to Ocean node',
-      icon: '🔗',
-      color: '#FFB800',
-      time: '2m ago',
-    },
-    {
-      name: 'Style Applied',
-      description: 'Magic border enabled on Ruby',
-      icon: '🎨',
-      color: '#FF3D71',
-      time: '5m ago',
-    },
-    {
-      name: 'Mesh Gradient',
-      description: 'Aurora colors applied to center',
-      icon: '🌈',
-      color: '#9E7AFF',
-      time: '8m ago',
-    },
-  ];
+  // Demo: Show sample toast notifications on mount
+  useEffect(() => {
+    // Stagger the toasts for demo effect
+    const timeouts: NodeJS.Timeout[] = [];
+
+    timeouts.push(
+      setTimeout(() => {
+        toast.success('Node Created', {
+          description: 'Emerald hexagon added to canvas',
+        });
+      }, 1000)
+    );
+
+    timeouts.push(
+      setTimeout(() => {
+        toast.info('Connection Made', {
+          description: 'Linked Focus to Ocean node',
+        });
+      }, 2500)
+    );
+
+    timeouts.push(
+      setTimeout(() => {
+        toast.warning('Style Applied', {
+          description: 'Magic border enabled on Ruby',
+        });
+      }, 4000)
+    );
+
+    timeouts.push(
+      setTimeout(() => {
+        toast.message('Mesh Gradient', {
+          description: 'Aurora colors applied to center',
+        });
+      }, 5500)
+    );
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
 
   return (
     <CanvasContainer ref={containerRef}>
       <SmoothCursor />
       <ReactFlow
-        nodes={centeredNodes}
+        nodes={nodes}
         edges={initialEdges}
         nodeTypes={memoizedNodeTypes}
         panOnScroll
@@ -521,32 +562,24 @@ function V3InterfaceViewInner({
         {renderBackground()}
       </ReactFlow>
 
-      {/* Animated List - Lower Right Corner */}
+      {/* Floating Text Input - Bottom Center */}
       <Box
         sx={{
           position: 'fixed',
           bottom: 24,
-          right: 24,
-          width: 320,
-          maxHeight: 400,
-          overflow: 'hidden',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '100%',
+          maxWidth: 600,
+          px: 2,
           zIndex: 100,
-          pointerEvents: 'none',
         }}
       >
-        <AnimatedList delay={1500}>
-          {notifications.map((notification, idx) => (
-            <NotificationItem
-              key={idx}
-              name={notification.name}
-              description={notification.description}
-              icon={notification.icon}
-              color={notification.color}
-              time={notification.time}
-            />
-          ))}
-        </AnimatedList>
+        <FloatingTextInput onSend={handleSendMessage} />
       </Box>
+
+      {/* Snackbar Toast Container - Bottom Right Corner */}
+      <Snackbar position="bottom-right" />
     </CanvasContainer>
   );
 }

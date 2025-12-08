@@ -666,6 +666,8 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
     lightRaysBlur = 36,
     lightRaysSpeed = 14,
     lightRaysLength = '100%',
+    // Shine Effect
+    shine = false,
     index = 0,
   } = nodeData;
 
@@ -849,9 +851,29 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
           cursor: 'pointer',
           position: 'relative',
           zIndex: 1,
+          overflow: 'hidden',
           transition: hoverAnimation === 'glow' ? 'box-shadow 0.3s ease' : undefined,
         }}
       >
+        {/* Shine Effect Overlay */}
+        {shine && (
+          <m.div
+            initial={{ x: '-100%' }}
+            animate={{ x: '200%' }}
+            transition={{ duration: 0.8, ease: 'easeInOut' }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '50%',
+              height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+              pointerEvents: 'none',
+              zIndex: 50,
+            }}
+          />
+        )}
+
         {/* Label */}
         <Typography
           sx={{

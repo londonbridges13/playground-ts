@@ -295,6 +295,9 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   // Text
   const textColor = (data.textColor as string) ?? '#000000';
 
+  // Shine Effect
+  const shine = data.shine ?? false;
+
   // Unique IDs for filters
   const clipPathId = useMemo(() => `hex-clip-${id}`, [id]);
   const grainFilterId = useMemo(() => `hex-grain-${id}`, [id]);
@@ -371,6 +374,35 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
             </filter>
           </defs>
         </svg>
+
+        {/* Shine Effect Overlay */}
+        {shine && (
+          <Box
+            sx={{
+              position: 'absolute',
+              width: 178,
+              height: 174,
+              clipPath: `url(#${clipPathId})`,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+              zIndex: 100,
+            }}
+          >
+            <m.div
+              initial={{ x: '-100%' }}
+              animate={{ x: '200%' }}
+              transition={{ duration: 0.8, ease: 'easeInOut' }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '50%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+              }}
+            />
+          </Box>
+        )}
 
         {/* Mesh Gradient Background */}
         {meshGradient && (

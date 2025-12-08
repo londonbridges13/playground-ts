@@ -109,6 +109,9 @@ export interface CircularNodeData {
   lightRaysSpeed?: number; // Animation cycle duration in seconds (default: 14)
   lightRaysLength?: string; // Ray length (default: '100%')
 
+  // Shine Effect
+  shine?: boolean; // Trigger shine animation on the node
+
   // State (internal)
   index?: number;
   isExiting?: boolean;
