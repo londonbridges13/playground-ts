@@ -22,6 +22,16 @@
 @import '@fontsource-variable/nunito-sans';
 
 /** **************************************
+* Fonts: JetBrains Mono (monospace)
+*************************************** */
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 400;
+  font-display: swap;
+  src: url(/JetBrainsMono-Regular.woff2) format("woff2");
+}
+
+/** **************************************
 * Plugins
 *************************************** */
 /* scrollbar */

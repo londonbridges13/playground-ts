@@ -1,5 +1,13 @@
 export * from './variants';
 
+export * from './blur-reveal';
+
+export * from './blur-fade';
+
+export * from './typing-animation';
+
+export * from './hyper-text';
+
 export * from './animate-text';
 
 export * from './animate-logo';

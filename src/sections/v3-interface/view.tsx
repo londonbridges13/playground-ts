@@ -15,6 +15,7 @@ import '@xyflow/react/dist/style.css';
 import Box from '@mui/material/Box';
 
 import { toast, Snackbar } from 'src/components/snackbar';
+import { BlurReveal, BlurFade, HyperText } from 'src/components/animate';
 
 import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
@@ -408,9 +409,39 @@ function V3InterfaceViewInner({
   // State for hovered grid square
   const [hoveredSquare, setHoveredSquare] = useState<number | null>(null);
 
+  // State for status label: 'idle' | 'working' | 'transitioning' | 'done' | 'deleting'
+  const [status, setStatus] = useState<'idle' | 'working' | 'transitioning' | 'done' | 'deleting'>('idle');
+  // State to trigger deletion of "Done" text
+  const [triggerDoneDelete, setTriggerDoneDelete] = useState(false);
+  // Text for HyperText component
+  const [statusText, setStatusText] = useState('Working...');
+  // Current step in the transition sequence
+  const transitionStepRef = useRef(0);
+
+  // Intermediate text steps from "Working..." to "Done"
+  const TRANSITION_STEPS = useMemo(() => [
+    'Working...',
+    'Working..',
+    'Working.',
+    'Working',
+    'Workin',
+    'Worki',
+    'Work',
+    'Done',
+  ], []);
+
+  // Time between each step in milliseconds
+  const STEP_DURATION = 150;
+
   // Handle sending a message - triggers shine effect on all nodes
   const handleSendMessage = useCallback((message: string) => {
-    toast.info('Message sent', { description: message });
+    // Reset states for new message
+    setTriggerDoneDelete(false);
+    setStatusText('Working...');
+    transitionStepRef.current = 0;
+
+    // Immediately show "Working..." label
+    setStatus('working');
 
     // Trigger shine on all nodes
     setNodes(currentNodes =>
@@ -429,6 +460,41 @@ function V3InterfaceViewInner({
         }))
       );
     }, 1000);
+
+    // Delay toast by 1.5 seconds, then start transition sequence
+    setTimeout(() => {
+      toast.info('Message sent', { description: message });
+      setStatus('transitioning');
+      // Start stepping through intermediate texts
+      transitionStepRef.current = 1;
+      setStatusText(TRANSITION_STEPS[1]);
+    }, 1500);
+  }, [TRANSITION_STEPS]);
+
+  // Handle when HyperText completes each step - advance to next step
+  const handleHyperTextComplete = useCallback(() => {
+    const nextStep = transitionStepRef.current + 1;
+
+    if (nextStep < TRANSITION_STEPS.length) {
+      // Move to next intermediate step
+      transitionStepRef.current = nextStep;
+      setStatusText(TRANSITION_STEPS[nextStep]);
+    } else {
+      // All steps complete, we're at "Done"
+      setStatus('done');
+      // After a pause, start deleting
+      setTimeout(() => {
+        setStatus('deleting');
+        setTriggerDoneDelete(true);
+      }, 800);
+    }
+  }, [TRANSITION_STEPS]);
+
+  // Handle when "Done" deletion is complete - reset to idle
+  const handleDoneDeleteComplete = useCallback(() => {
+    setStatus('idle');
+    setTriggerDoneDelete(false);
+    setStatusText('Working...');
   }, []);
 
   // Handle mouse move on the pane to detect which grid square is hovered
@@ -573,8 +639,136 @@ function V3InterfaceViewInner({
           maxWidth: 600,
           px: 2,
           zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
         }}
       >
+        {/* Status Label - above input */}
+        {/* Working state: BlurReveal with indicator inside */}
+        {status === 'working' && (
+          <BlurReveal duration={800} blur={8} sx={{ mb: 1.5, ml: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: '0.9375rem',
+                  color: '#9ca3af',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                Working...
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: '#FF6B35',
+                  animation: 'popIn 0.3s ease-out forwards, pulse 1.2s ease-in-out 0.3s infinite',
+                  '@keyframes popIn': {
+                    '0%': {
+                      transform: 'scale(0.4)',
+                      opacity: 0,
+                    },
+                    '100%': {
+                      transform: 'scale(1.15)',
+                      opacity: 1,
+                    },
+                  },
+                  '@keyframes pulse': {
+                    '0%, 100%': {
+                      transform: 'scale(1.15)',
+                      opacity: 1,
+                    },
+                    '50%': {
+                      transform: 'scale(0.85)',
+                      opacity: 0.7,
+                    },
+                  },
+                }}
+              />
+            </Box>
+          </BlurReveal>
+        )}
+
+        {/* Transitioning/Done state: Persistent indicator with smooth color transition */}
+        {(status === 'transitioning' || status === 'done') && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, ml: 1 }}>
+            <HyperText
+              duration={30}
+              delay={0}
+              animateOnHover={false}
+              onAnimationComplete={status === 'transitioning' ? handleHyperTextComplete : undefined}
+              sx={{
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: '0.9375rem',
+                color: '#9ca3af',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {statusText}
+            </HyperText>
+            <Box
+              component="span"
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                backgroundColor: statusText === 'Done' ? '#4ADE80' : '#FF6B35',
+                animation: statusText !== 'Done' ? 'pulse 1.2s ease-in-out infinite' : 'none',
+                transition: 'background-color 0.5s ease',
+                '@keyframes pulse': {
+                  '0%, 100%': {
+                    transform: 'scale(1.15)',
+                    opacity: 1,
+                  },
+                  '50%': {
+                    transform: 'scale(0.85)',
+                    opacity: 0.7,
+                  },
+                },
+              }}
+            />
+          </Box>
+        )}
+
+        {/* Deleting state: BlurFade with indicator inside */}
+        {status === 'deleting' && (
+          <BlurFade
+            trigger={triggerDoneDelete}
+            duration={500}
+            blur={8}
+            onComplete={handleDoneDeleteComplete}
+            sx={{ mb: 1.5, ml: 1 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: '0.9375rem',
+                  color: '#9ca3af',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                Done
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: '#4ADE80',
+                }}
+              />
+            </Box>
+          </BlurFade>
+        )}
+
         <FloatingTextInput onSend={handleSendMessage} />
       </Box>
 
