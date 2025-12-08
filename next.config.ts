@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
       use: ['@svgr/webpack'],
     });
 
+    // Handle GLSL shader files
+    config.module.rules.push({
+      test: /\.(glsl|vs|fs|vert|frag)$/,
+      use: ['raw-loader'],
+    });
+
     return config;
   },
   // With --turbopack (next dev --turbopack)
@@ -41,6 +47,18 @@ const nextConfig: NextConfig = {
     rules: {
       '*.svg': {
         loaders: ['@svgr/webpack'],
+        as: '*.js',
+      },
+      '*.glsl': {
+        loaders: ['raw-loader'],
+        as: '*.js',
+      },
+      '*.vert': {
+        loaders: ['raw-loader'],
+        as: '*.js',
+      },
+      '*.frag': {
+        loaders: ['raw-loader'],
         as: '*.js',
       },
     },
