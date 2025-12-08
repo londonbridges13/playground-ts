@@ -418,17 +418,22 @@ function V3InterfaceViewInner({
   // Current step in the transition sequence
   const transitionStepRef = useRef(0);
 
-  // Intermediate text steps from "Working..." to "Done"
-  const TRANSITION_STEPS = useMemo(() => [
-    'Working...',
-    'Working..',
-    'Working.',
-    'Working',
-    'Workin',
-    'Worki',
-    'Work',
-    'Done',
-  ], []);
+  // Intermediate text steps from "Researching ..." to "Done"
+  // Uses random characters for shrinking transition
+  const TRANSITION_STEPS = useMemo(() => {
+    const generateRandomString = (length: number) => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    };
+
+    const steps = ['Researching ...'];  // Start (16 chars)
+    // Generate random strings from length 15 down to 4
+    for (let len = 15; len >= 4; len--) {
+      steps.push(generateRandomString(len));
+    }
+    steps.push('Done');  // End (4 chars)
+    return steps;
+  }, []);
 
   // Time between each step in milliseconds
   const STEP_DURATION = 150;
@@ -437,7 +442,7 @@ function V3InterfaceViewInner({
   const handleSendMessage = useCallback((message: string) => {
     // Reset states for new message
     setTriggerDoneDelete(false);
-    setStatusText('Working...');
+    setStatusText('Researching ...');
     transitionStepRef.current = 0;
 
     // Immediately show "Working..." label
@@ -658,7 +663,7 @@ function V3InterfaceViewInner({
                   letterSpacing: '0.02em',
                 }}
               >
-                Working...
+                Researching ...
               </Box>
               <Box
                 component="span"
@@ -666,7 +671,7 @@ function V3InterfaceViewInner({
                   width: 12,
                   height: 12,
                   borderRadius: '50%',
-                  backgroundColor: '#FF6B35',
+                  backgroundColor: '#17A0EF',
                   animation: 'popIn 0.3s ease-out forwards, pulse 1.2s ease-in-out 0.3s infinite',
                   '@keyframes popIn': {
                     '0%': {
@@ -698,7 +703,7 @@ function V3InterfaceViewInner({
         {(status === 'transitioning' || status === 'done') && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, ml: 1 }}>
             <HyperText
-              duration={30}
+              duration={20}
               delay={0}
               animateOnHover={false}
               onAnimationComplete={status === 'transitioning' ? handleHyperTextComplete : undefined}
@@ -717,7 +722,7 @@ function V3InterfaceViewInner({
                 width: 12,
                 height: 12,
                 borderRadius: '50%',
-                backgroundColor: statusText === 'Done' ? '#4ADE80' : '#FF6B35',
+                backgroundColor: statusText === 'Done' ? '#4ADE80' : '#17A0EF',
                 animation: statusText !== 'Done' ? 'pulse 1.2s ease-in-out infinite' : 'none',
                 transition: 'background-color 0.5s ease',
                 '@keyframes pulse': {
