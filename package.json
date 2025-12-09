@@ -63,6 +63,7 @@
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",
     "react-markdown": "^10.1.0",
+    "react-rnd": "^10.5.2",
     "react-swipeable-views": "^0.14.1",
     "react-swipeable-views-utils": "^0.14.1",
     "simplebar-react": "^3.3.2",

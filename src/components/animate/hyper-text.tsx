@@ -60,6 +60,11 @@ export function HyperText({
   const prevChildrenRef = useRef(children);
   const prevLengthRef = useRef(children.length);
   const targetTextRef = useRef(children);
+  const lastScrambleTimeRef = useRef(0);
+  const lastScrambleTextRef = useRef<string[]>([]);
+
+  // Scramble interval: 25ms = 40 updates per second
+  const scrambleIntervalMs = 25;
 
   const handleAnimationTrigger = () => {
     if (animateOnHover && !isAnimating) {
@@ -135,6 +140,9 @@ export function HyperText({
       // Calculate how many characters should be "settled" (showing final text)
       const settledCount = Math.floor(progress * endLength);
 
+      // Check if we should generate new scramble characters (throttled to 40fps)
+      const shouldScramble = currentTime - lastScrambleTimeRef.current >= scrambleIntervalMs;
+
       // Build the display text
       const newDisplayText: string[] = [];
       for (let i = 0; i < currentLength; i++) {
@@ -144,13 +152,28 @@ export function HyperText({
         } else if (i < endLength) {
           // This character is still scrambling but will be part of final text
           const char = targetText[i];
-          newDisplayText.push(
-            char === ' ' ? ' ' : characterSet[getRandomInt(characterSet.length)]
-          );
+          if (char === ' ') {
+            newDisplayText.push(' ');
+          } else if (shouldScramble) {
+            newDisplayText.push(characterSet[getRandomInt(characterSet.length)]);
+          } else {
+            // Reuse previous scramble character if available
+            newDisplayText.push(lastScrambleTextRef.current[i] || characterSet[getRandomInt(characterSet.length)]);
+          }
         } else {
           // Extra characters that will be removed (scrambling out)
-          newDisplayText.push(characterSet[getRandomInt(characterSet.length)]);
+          if (shouldScramble) {
+            newDisplayText.push(characterSet[getRandomInt(characterSet.length)]);
+          } else {
+            newDisplayText.push(lastScrambleTextRef.current[i] || characterSet[getRandomInt(characterSet.length)]);
+          }
         }
+      }
+
+      // Update scramble time and cache if we scrambled
+      if (shouldScramble) {
+        lastScrambleTimeRef.current = currentTime;
+        lastScrambleTextRef.current = newDisplayText;
       }
 
       setDisplayText(newDisplayText);

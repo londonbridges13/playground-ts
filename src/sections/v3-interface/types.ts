@@ -189,3 +189,45 @@ export interface V3InterfaceProps {
   gridSquares?: [number, number];
 }
 
+// ----------------------------------------------------------------------
+// Floating Chat View Types
+// ----------------------------------------------------------------------
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+export interface MentionTab {
+  id: string;
+  title: string;
+  url: string;
+  favicon?: string;
+}
+
+export interface QuickAction {
+  id: string;
+  label: string;
+  icon: string;
+  action: 'analyze' | 'explain' | 'summarize';
+}
+
+export interface FloatingChatViewProps {
+  open: boolean;
+  onClose: () => void;
+  initialMessage?: string | null;
+  contextTitle?: string;
+  contextSubtitle?: string;
+  contextIcon?: string;
+}
+
+export interface MentionTabsMenuProps {
+  open: boolean;
+  anchorEl: HTMLElement | null;
+  onClose: () => void;
+  onSelect: (tab: MentionTab) => void;
+  searchQuery?: string;
+}
+

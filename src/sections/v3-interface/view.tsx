@@ -20,6 +20,7 @@ import { BlurReveal, BlurFade, HyperText } from 'src/components/animate';
 import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
 import { FloatingTextInput } from './components/floating-text-input';
+import { FloatingChatView } from './components/floating-chat-view';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
 import { useCenteredNodes } from './hooks/use-centered-nodes';
@@ -418,6 +419,10 @@ function V3InterfaceViewInner({
   // Current step in the transition sequence
   const transitionStepRef = useRef(0);
 
+  // State for floating chat view
+  const [chatOpen, setChatOpen] = useState(false);
+  const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
+
   // Intermediate text steps from "Researching ..." to "Done"
   // Uses random characters for shrinking transition
   const TRANSITION_STEPS = useMemo(() => {
@@ -438,8 +443,12 @@ function V3InterfaceViewInner({
   // Time between each step in milliseconds
   const STEP_DURATION = 150;
 
-  // Handle sending a message - triggers shine effect on all nodes
+  // Handle sending a message - triggers shine effect on all nodes and opens chat view
   const handleSendMessage = useCallback((message: string) => {
+    // Open the floating chat view with the initial message
+    setInitialChatMessage(message);
+    setChatOpen(true);
+
     // Reset states for new message
     setTriggerDoneDelete(false);
     setStatusText('Researching ...');
@@ -475,6 +484,12 @@ function V3InterfaceViewInner({
       setStatusText(TRANSITION_STEPS[1]);
     }, 1500);
   }, [TRANSITION_STEPS]);
+
+  // Handle closing the chat view
+  const handleChatClose = useCallback(() => {
+    setChatOpen(false);
+    setInitialChatMessage(null);
+  }, []);
 
   // Handle when HyperText completes each step - advance to next step
   const handleHyperTextComplete = useCallback(() => {
@@ -775,6 +790,15 @@ function V3InterfaceViewInner({
         )}
 
         <FloatingTextInput onSend={handleSendMessage} />
+
+        {/* Floating Chat View */}
+        <FloatingChatView
+          open={chatOpen}
+          onClose={handleChatClose}
+          initialMessage={initialChatMessage}
+          contextTitle="V3 Interface"
+          contextSubtitle="localhost"
+        />
       </Box>
 
       {/* Snackbar Toast Container - Bottom Right Corner */}
