@@ -8,8 +8,9 @@ import {
   BackgroundVariant,
   PanOnScrollMode,
   useReactFlow,
+  applyNodeChanges,
 } from '@xyflow/react';
-import type { Node, Edge } from '@xyflow/react';
+import type { Node, Edge, NodeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import Box from '@mui/material/Box';
@@ -23,12 +24,16 @@ import { FloatingTextInput } from './components/floating-text-input';
 import { FloatingChatView } from './components/floating-chat-view';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
+import { PulseButtonEdge, HandDrawnEdge } from './edges';
 import { useCenteredNodes } from './hooks/use-centered-nodes';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType } from './types';
 
 // Node types - defined outside component, memoized
 const nodeTypes = { circular: CircularNode, hexagon: HexagonNode, rectangle: RectangleNode };
+
+// Edge types - defined outside component, memoized
+const edgeTypes = { pulseButton: PulseButtonEdge, handDrawn: HandDrawnEdge };
 
 // Demo nodes showcasing different style presets
 const DEFAULT_NODES: Node[] = [
@@ -283,6 +288,10 @@ const DEFAULT_NODES: Node[] = [
       grainBlendMode: 'overlay',
       borderWidth: 5,
       textColor: '#ffffff',
+      showFloatingHandles: true,
+      handleSize: 16,
+      handleColor: '#d1d5db',
+      handleOffset: 10,
     },
   },
   // Hexagon: Magic 2 (Image background)
@@ -298,6 +307,10 @@ const DEFAULT_NODES: Node[] = [
       grainBlendMode: 'overlay',
       borderWidth: 5,
       textColor: '#ffffff',
+      showFloatingHandles: true,
+      handleSize: 16,
+      handleColor: '#d1d5db',
+      handleOffset: 10,
     },
   },
   // ============================================
@@ -390,15 +403,41 @@ const DEFAULT_NODES: Node[] = [
   },
 ];
 
+// Demo edges showcasing dotted button edge
+const DEFAULT_EDGES: Edge[] = [
+  {
+    id: 'e-magic-to-magic2',
+    source: 'hex-magic',
+    target: 'hex-magic-2',
+    sourceHandle: 'right',
+    targetHandle: 'left',
+    type: 'pulseButton',
+    data: {
+      strokeColor: 'rgba(158, 122, 255, 0.8)',
+      strokeWidth: 2.5,
+      dashArray: '6 8',
+      buttonIcon: 'eva:link-2-fill',
+      buttonSize: 30,
+      buttonColor: '#ffffff',
+      buttonBgColor: 'rgba(158, 122, 255, 0.9)',
+      lineType: 'curved',
+      curvature: 0.1,
+      handleOffset: 10,
+    },
+  },
+];
+
 function V3InterfaceViewInner({
   initialNodes = DEFAULT_NODES,
-  initialEdges = [],
+  initialEdges = DEFAULT_EDGES,
   backgroundType = 'dots',
   gridSquareSize = 40,
 }: V3InterfaceProps) {
   const baseCenteredNodes = useCenteredNodes(initialNodes);
   const [nodes, setNodes] = useState<Node[]>(baseCenteredNodes);
+  const [edges] = useState<Edge[]>(initialEdges);
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
+  const memoizedEdgeTypes = useMemo(() => edgeTypes, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const { getViewport } = useReactFlow();
 
@@ -406,6 +445,12 @@ function V3InterfaceViewInner({
   useEffect(() => {
     setNodes(baseCenteredNodes);
   }, [baseCenteredNodes]);
+
+  // Handle node changes (dragging, selecting, etc.)
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    []
+  );
 
   // State for hovered grid square
   const [hoveredSquare, setHoveredSquare] = useState<number | null>(null);
@@ -631,8 +676,10 @@ function V3InterfaceViewInner({
       <SmoothCursor />
       <ReactFlow
         nodes={nodes}
-        edges={initialEdges}
+        edges={edges}
         nodeTypes={memoizedNodeTypes}
+        edgeTypes={memoizedEdgeTypes}
+        onNodesChange={onNodesChange}
         panOnScroll
         panOnScrollMode={PanOnScrollMode.Free}
         panOnScrollSpeed={1.3}

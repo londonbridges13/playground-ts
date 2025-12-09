@@ -298,6 +298,12 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   // Shine Effect
   const shine = data.shine ?? false;
 
+  // Floating Handles
+  const showFloatingHandles = data.showFloatingHandles ?? false;
+  const handleSize = (data.handleSize as number) ?? 16;
+  const handleColor = (data.handleColor as string) ?? '#d1d5db';
+  const handleOffset = (data.handleOffset as number) ?? 24;
+
   // Unique IDs for filters
   const clipPathId = useMemo(() => `hex-clip-${id}`, [id]);
   const grainFilterId = useMemo(() => `hex-grain-${id}`, [id]);
@@ -548,14 +554,36 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
           position={Position.Left}
           id="left"
           isConnectable={isConnectable}
-          style={{ background: '#555', left: 30, opacity: 0 }}
+          style={
+            showFloatingHandles
+              ? {
+                  width: handleSize,
+                  height: handleSize,
+                  background: 'white',
+                  border: `2px solid ${handleColor}`,
+                  borderRadius: '50%',
+                  left: -handleOffset,
+                }
+              : { background: '#555', left: 30, opacity: 0 }
+          }
         />
         <Handle
           type="source"
           position={Position.Right}
           id="right"
           isConnectable={isConnectable}
-          style={{ background: '#555', right: 30, opacity: 0 }}
+          style={
+            showFloatingHandles
+              ? {
+                  width: handleSize,
+                  height: handleSize,
+                  background: 'white',
+                  border: `2px solid ${handleColor}`,
+                  borderRadius: '50%',
+                  right: -handleOffset,
+                }
+              : { background: '#555', right: 30, opacity: 0 }
+          }
         />
       </Box>
     </m.div>
