@@ -24,7 +24,7 @@ import { FloatingTextInput } from './components/floating-text-input';
 import { FloatingChatView } from './components/floating-chat-view';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
-import { PulseButtonEdge, HandDrawnEdge } from './edges';
+import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
 import { useCenteredNodes } from './hooks/use-centered-nodes';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType } from './types';
@@ -33,7 +33,11 @@ import type { V3InterfaceProps, BackgroundType } from './types';
 const nodeTypes = { circular: CircularNode, hexagon: HexagonNode, rectangle: RectangleNode };
 
 // Edge types - defined outside component, memoized
-const edgeTypes = { pulseButton: PulseButtonEdge, handDrawn: HandDrawnEdge };
+const edgeTypes = {
+  pulseButton: PulseButtonEdge,
+  handDrawn: HandDrawnEdge,
+  smartPulseButton: SmartPulseButtonEdge,
+};
 
 // Demo nodes showcasing different style presets
 const DEFAULT_NODES: Node[] = [
@@ -411,7 +415,7 @@ const DEFAULT_EDGES: Edge[] = [
     target: 'hex-magic-2',
     sourceHandle: 'right',
     targetHandle: 'left',
-    type: 'pulseButton',
+    type: 'smartPulseButton',
     data: {
       strokeColor: 'rgba(158, 122, 255, 0.8)',
       strokeWidth: 2.5,
@@ -420,8 +424,8 @@ const DEFAULT_EDGES: Edge[] = [
       buttonSize: 30,
       buttonColor: '#ffffff',
       buttonBgColor: 'rgba(158, 122, 255, 0.9)',
-      lineType: 'curved',
-      curvature: 0.1,
+      nodePadding: 20,
+      gridRatio: 10,
       handleOffset: 10,
     },
   },
