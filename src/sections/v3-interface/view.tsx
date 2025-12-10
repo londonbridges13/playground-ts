@@ -22,6 +22,7 @@ import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
 import { FloatingTextInput } from './components/floating-text-input';
 import { FloatingChatView } from './components/floating-chat-view';
+import { RecordingWaveform } from './components/recording-waveform';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
@@ -1583,127 +1584,138 @@ function V3InterfaceViewInner({
         )}
 
         {/* Recording Status Label - above input */}
-        {/* Initial recording state: BlurReveal with indicator on LEFT */}
-        {recordingStatus === 'recording' && recordingRevealing && (
-          <BlurReveal duration={800} blur={8} sx={{ mb: 1.5, ml: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box
-                component="span"
-                sx={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: '50%',
-                  backgroundColor: '#EF4444',
-                  animation: 'popIn 0.3s ease-out forwards, pulse 1.2s ease-in-out 0.3s infinite',
-                  '@keyframes popIn': {
-                    '0%': {
-                      transform: 'scale(0.4)',
-                      opacity: 0,
-                    },
-                    '100%': {
-                      transform: 'scale(1.15)',
-                      opacity: 1,
-                    },
-                  },
-                  '@keyframes pulse': {
-                    '0%, 100%': {
-                      transform: 'scale(1.15)',
-                      opacity: 1,
-                    },
-                    '50%': {
-                      transform: 'scale(0.85)',
-                      opacity: 0.7,
-                    },
-                  },
-                }}
-              />
-              <Box
-                component="span"
-                sx={{
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: '0.9375rem',
-                  color: '#9ca3af',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                Recording ...
-              </Box>
-            </Box>
-          </BlurReveal>
-        )}
+        {/* Stable wrapper for waveform positioning */}
+        {recordingStatus !== 'idle' && (
+          <Box sx={{ position: 'relative', width: '100%', mb: 1.5, ml: 1, pr: 1, minHeight: 24 }}>
+            {/* Initial recording state: BlurReveal with indicator on LEFT */}
+            {recordingStatus === 'recording' && recordingRevealing && (
+              <BlurReveal duration={800} blur={8} sx={{ width: '100%' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
+                    component="span"
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: '#EF4444',
+                      animation: 'popIn 0.3s ease-out forwards, pulse 1.2s ease-in-out 0.3s infinite',
+                      '@keyframes popIn': {
+                        '0%': {
+                          transform: 'scale(0.4)',
+                          opacity: 0,
+                        },
+                        '100%': {
+                          transform: 'scale(1.15)',
+                          opacity: 1,
+                        },
+                      },
+                      '@keyframes pulse': {
+                        '0%, 100%': {
+                          transform: 'scale(1.15)',
+                          opacity: 1,
+                        },
+                        '50%': {
+                          transform: 'scale(0.85)',
+                          opacity: 0.7,
+                        },
+                      },
+                    }}
+                  />
+                  <Box
+                    component="span"
+                    sx={{
+                      fontFamily: '"JetBrains Mono", monospace',
+                      fontSize: '0.9375rem',
+                      color: '#9ca3af',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Recording ...
+                  </Box>
+                </Box>
+              </BlurReveal>
+            )}
 
-        {/* Recording/Paused transitioning state: HyperText with indicator on LEFT */}
-        {(recordingStatus === 'recording' || recordingStatus === 'paused') && !recordingRevealing && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, ml: 1 }}>
-            <Box
-              component="span"
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                backgroundColor: recordingStatus === 'recording' ? '#EF4444' : '#9ca3af',
-                animation: recordingStatus === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
-                transition: 'background-color 0.5s ease',
-                '@keyframes pulse': {
-                  '0%, 100%': {
-                    transform: 'scale(1.15)',
-                    opacity: 1,
-                  },
-                  '50%': {
-                    transform: 'scale(0.85)',
-                    opacity: 0.7,
-                  },
-                },
-              }}
+            {/* Recording/Paused transitioning state: HyperText with indicator on LEFT */}
+            {(recordingStatus === 'recording' || recordingStatus === 'paused') && !recordingRevealing && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box
+                  component="span"
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: recordingStatus === 'recording' ? '#EF4444' : '#9ca3af',
+                    animation: recordingStatus === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
+                    transition: 'background-color 0.5s ease',
+                    '@keyframes pulse': {
+                      '0%, 100%': {
+                        transform: 'scale(1.15)',
+                        opacity: 1,
+                      },
+                      '50%': {
+                        transform: 'scale(0.85)',
+                        opacity: 0.7,
+                      },
+                    },
+                  }}
+                />
+                <HyperText
+                  duration={300}
+                  delay={0}
+                  animateOnHover={false}
+                  sx={{
+                    fontFamily: '"JetBrains Mono", monospace',
+                    fontSize: '0.9375rem',
+                    color: '#9ca3af',
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  {recordingText}
+                </HyperText>
+              </Box>
+            )}
+
+            {/* Fading state: BlurFade for paused fade-out */}
+            {recordingStatus === 'fading' && (
+              <BlurFade
+                trigger={triggerPausedFade}
+                duration={500}
+                blur={8}
+                onComplete={handlePausedFadeComplete}
+                sx={{ width: '100%' }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
+                    component="span"
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: '#9ca3af',
+                    }}
+                  />
+                  <Box
+                    component="span"
+                    sx={{
+                      fontFamily: '"JetBrains Mono", monospace',
+                      fontSize: '0.9375rem',
+                      color: '#9ca3af',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Paused
+                  </Box>
+                </Box>
+              </BlurFade>
+            )}
+
+            {/* SINGLE waveform instance - always positioned to the right of stable wrapper */}
+            <RecordingWaveform
+              isAnimating={recordingStatus === 'recording'}
+              isFading={recordingStatus === 'fading'}
             />
-            <HyperText
-              duration={300}
-              delay={0}
-              animateOnHover={false}
-              sx={{
-                fontFamily: '"JetBrains Mono", monospace',
-                fontSize: '0.9375rem',
-                color: '#9ca3af',
-                letterSpacing: '0.02em',
-              }}
-            >
-              {recordingText}
-            </HyperText>
           </Box>
-        )}
-
-        {/* Fading state: BlurFade for paused fade-out */}
-        {recordingStatus === 'fading' && (
-          <BlurFade
-            trigger={triggerPausedFade}
-            duration={500}
-            blur={8}
-            onComplete={handlePausedFadeComplete}
-            sx={{ mb: 1.5, ml: 1 }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box
-                component="span"
-                sx={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: '50%',
-                  backgroundColor: '#9ca3af',
-                }}
-              />
-              <Box
-                component="span"
-                sx={{
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: '0.9375rem',
-                  color: '#9ca3af',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                Paused
-              </Box>
-            </Box>
-          </BlurFade>
         )}
 
         <FloatingTextInput

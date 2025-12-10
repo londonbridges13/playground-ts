@@ -361,7 +361,7 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, recordingS
             aria-label={recordingStatus === 'recording' ? 'Stop recording' : 'Voice input'}
           >
             {recordingStatus === 'recording' ? (
-              <Iconify icon="hugeicons:stop" sx={{ fontSize: 16, opacity: 0.6 }} />
+              <Iconify icon="solar:stop-circle-bold" sx={{ fontSize: 22, opacity: 0.8 }} />
             ) : (
               <MicNoneIcon sx={{ fontSize: 22 }} />
             )}
