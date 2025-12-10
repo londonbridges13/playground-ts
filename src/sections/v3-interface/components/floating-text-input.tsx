@@ -26,13 +26,17 @@ import { Iconify } from 'src/components/iconify';
 const GOALS: Record<string, { id: string; name: string; icon?: string; description?: string }> = {};
 const getGoalIds = () => Object.keys(GOALS);
 
+export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'fading';
+
 type FloatingTextInputProps = {
   onSend?: (message: string) => void;
   onGoalSelect?: (goalId: string) => void;
+  onMicClick?: () => void;
+  recordingStatus?: RecordingStatus;
   currentGoalId?: string;
 };
 
-export function FloatingTextInput({ onSend, onGoalSelect, currentGoalId }: FloatingTextInputProps) {
+export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [goalMenuAnchor, setGoalMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
@@ -345,16 +349,22 @@ export function FloatingTextInput({ onSend, onGoalSelect, currentGoalId }: Float
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconButton
             size="small"
+            onClick={onMicClick}
             sx={{
               p: 0.75,
-              color: '#9ca3af',
+              color: recordingStatus === 'recording' ? '#EF4444' : '#9ca3af',
+              bgcolor: recordingStatus !== 'idle' && recordingStatus !== 'fading' ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
               '&:hover': {
-                bgcolor: 'rgba(0, 0, 0, 0.04)',
+                bgcolor: recordingStatus !== 'idle' && recordingStatus !== 'fading' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(0, 0, 0, 0.04)',
               },
             }}
-            aria-label="Voice input"
+            aria-label={recordingStatus === 'recording' ? 'Stop recording' : 'Voice input'}
           >
-            <MicNoneIcon sx={{ fontSize: 22 }} />
+            {recordingStatus === 'recording' ? (
+              <Iconify icon="hugeicons:stop" sx={{ fontSize: 16, opacity: 0.6 }} />
+            ) : (
+              <MicNoneIcon sx={{ fontSize: 22 }} />
+            )}
           </IconButton>
 
           <IconButton

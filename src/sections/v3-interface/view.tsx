@@ -1164,6 +1164,17 @@ function V3InterfaceViewInner({
   const [chatOpen, setChatOpen] = useState(false);
   const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
 
+  // State for recording status: 'idle' | 'recording' | 'paused' | 'fading'
+  const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'paused' | 'fading'>('idle');
+  // Text for recording HyperText component
+  const [recordingText, setRecordingText] = useState('Recording ...');
+  // Whether recording indicator is in initial reveal state
+  const [recordingRevealing, setRecordingRevealing] = useState(false);
+  // Trigger for paused fade-out
+  const [triggerPausedFade, setTriggerPausedFade] = useState(false);
+  // Ref for paused timeout
+  const pausedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Intermediate text steps from "Researching ..." to "Done"
   // Uses random characters for shrinking transition
   const TRANSITION_STEPS = useMemo(() => {
@@ -1256,6 +1267,45 @@ function V3InterfaceViewInner({
     setStatus('idle');
     setTriggerDoneDelete(false);
     setStatusText('Working...');
+  }, []);
+
+  // Handle mic button click - toggle between recording states
+  const handleMicClick = useCallback(() => {
+    // Clear any existing paused timeout
+    if (pausedTimeoutRef.current) {
+      clearTimeout(pausedTimeoutRef.current);
+      pausedTimeoutRef.current = null;
+    }
+
+    if (recordingStatus === 'idle' || recordingStatus === 'fading') {
+      // Start recording - show with BlurReveal
+      setTriggerPausedFade(false);
+      setRecordingRevealing(true);
+      setRecordingText('Recording ...');
+      setRecordingStatus('recording');
+    } else if (recordingStatus === 'recording') {
+      // Pause recording - use HyperText transition
+      setRecordingRevealing(false);
+      setRecordingText('Paused');
+      setRecordingStatus('paused');
+      // Start 3-second timer to fade out
+      pausedTimeoutRef.current = setTimeout(() => {
+        setRecordingStatus('fading');
+        setTriggerPausedFade(true);
+      }, 3000);
+    } else if (recordingStatus === 'paused') {
+      // Resume recording - use HyperText transition
+      setRecordingRevealing(false);
+      setRecordingText('Recording ...');
+      setRecordingStatus('recording');
+    }
+  }, [recordingStatus]);
+
+  // Handle when paused fade-out is complete - reset to idle
+  const handlePausedFadeComplete = useCallback(() => {
+    setRecordingStatus('idle');
+    setTriggerPausedFade(false);
+    setRecordingText('Recording ...');
   }, []);
 
   // Handle mouse move on the pane to detect which grid square is hovered
@@ -1532,7 +1582,135 @@ function V3InterfaceViewInner({
           </BlurFade>
         )}
 
-        <FloatingTextInput onSend={handleSendMessage} />
+        {/* Recording Status Label - above input */}
+        {/* Initial recording state: BlurReveal with indicator on LEFT */}
+        {recordingStatus === 'recording' && recordingRevealing && (
+          <BlurReveal duration={800} blur={8} sx={{ mb: 1.5, ml: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                component="span"
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: '#EF4444',
+                  animation: 'popIn 0.3s ease-out forwards, pulse 1.2s ease-in-out 0.3s infinite',
+                  '@keyframes popIn': {
+                    '0%': {
+                      transform: 'scale(0.4)',
+                      opacity: 0,
+                    },
+                    '100%': {
+                      transform: 'scale(1.15)',
+                      opacity: 1,
+                    },
+                  },
+                  '@keyframes pulse': {
+                    '0%, 100%': {
+                      transform: 'scale(1.15)',
+                      opacity: 1,
+                    },
+                    '50%': {
+                      transform: 'scale(0.85)',
+                      opacity: 0.7,
+                    },
+                  },
+                }}
+              />
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: '0.9375rem',
+                  color: '#9ca3af',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                Recording ...
+              </Box>
+            </Box>
+          </BlurReveal>
+        )}
+
+        {/* Recording/Paused transitioning state: HyperText with indicator on LEFT */}
+        {(recordingStatus === 'recording' || recordingStatus === 'paused') && !recordingRevealing && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, ml: 1 }}>
+            <Box
+              component="span"
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                backgroundColor: recordingStatus === 'recording' ? '#EF4444' : '#9ca3af',
+                animation: recordingStatus === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
+                transition: 'background-color 0.5s ease',
+                '@keyframes pulse': {
+                  '0%, 100%': {
+                    transform: 'scale(1.15)',
+                    opacity: 1,
+                  },
+                  '50%': {
+                    transform: 'scale(0.85)',
+                    opacity: 0.7,
+                  },
+                },
+              }}
+            />
+            <HyperText
+              duration={300}
+              delay={0}
+              animateOnHover={false}
+              sx={{
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: '0.9375rem',
+                color: '#9ca3af',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {recordingText}
+            </HyperText>
+          </Box>
+        )}
+
+        {/* Fading state: BlurFade for paused fade-out */}
+        {recordingStatus === 'fading' && (
+          <BlurFade
+            trigger={triggerPausedFade}
+            duration={500}
+            blur={8}
+            onComplete={handlePausedFadeComplete}
+            sx={{ mb: 1.5, ml: 1 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                component="span"
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: '#9ca3af',
+                }}
+              />
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: '0.9375rem',
+                  color: '#9ca3af',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                Paused
+              </Box>
+            </Box>
+          </BlurFade>
+        )}
+
+        <FloatingTextInput
+          onSend={handleSendMessage}
+          onMicClick={handleMicClick}
+          recordingStatus={recordingStatus}
+        />
 
         {/* Floating Chat View */}
         <FloatingChatView
