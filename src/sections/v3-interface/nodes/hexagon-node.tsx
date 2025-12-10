@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
@@ -315,6 +315,26 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   const marbleFilterId = useMemo(() => `hex-marble-${id}`, [id]);
   const magicBorderId = useMemo(() => `hex-magic-border-${id}`, [id]);
 
+  // Chip ref and size for dynamic fade mask
+  const chipRef = useRef<HTMLDivElement>(null);
+  const [chipSize, setChipSize] = useState({ width: 80, height: 32 });
+
+  // Hexagon dimensions
+  const hexWidth = 178;
+  const hexHeight = 174;
+
+  useLayoutEffect(() => {
+    if (chipRef.current && patternOverlay) {
+      const rect = chipRef.current.getBoundingClientRect();
+      setChipSize({ width: rect.width, height: rect.height });
+    }
+  }, [data.label, patternOverlay]);
+
+  // Calculate fade mask radii based on chip size (with padding for smooth fade)
+  const fadePadding = 30; // Extra padding around chip for fade effect
+  const fadeRadiusX = ((chipSize.width / 2 + fadePadding) / hexWidth) * 100;
+  const fadeRadiusY = ((chipSize.height / 2 + fadePadding) / hexHeight) * 100;
+
   // Exit animations
   const exitAnimations = {
     slide: {
@@ -489,11 +509,17 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
               <clipPath id={`pattern-clip-${id}`}>
                 <path d={HEX_PATH} />
               </clipPath>
-              {/* Radial gradient for fade mask - transparent center, opaque edges */}
-              <radialGradient id={`pattern-fade-${id}`}>
+              {/* Radial gradient for fade mask - sized to chip dimensions */}
+              <radialGradient
+                id={`pattern-fade-${id}`}
+                cx="50%"
+                cy="50%"
+                rx={`${fadeRadiusX}%`}
+                ry={`${fadeRadiusY}%`}
+              >
                 <stop offset="0%" stopColor="white" stopOpacity="0" />
-                <stop offset="35%" stopColor="white" stopOpacity="0.2" />
-                <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+                <stop offset="50%" stopColor="white" stopOpacity="0.3" />
+                <stop offset="80%" stopColor="white" stopOpacity="0.7" />
                 <stop offset="100%" stopColor="white" stopOpacity="1" />
               </radialGradient>
               <mask id={`pattern-mask-${id}`}>
@@ -570,6 +596,7 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
         {/* Content */}
         {patternOverlay ? (
           <Chip
+            ref={chipRef}
             label={data.label as string}
             sx={{
               position: 'relative',

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
@@ -110,6 +110,22 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
 
   // Unique IDs for filters
   const grainFilterId = useMemo(() => `rect-grain-${id}`, [id]);
+
+  // Chip ref and size for dynamic fade mask
+  const chipRef = useRef<HTMLDivElement>(null);
+  const [chipSize, setChipSize] = useState({ width: 80, height: 32 });
+
+  useLayoutEffect(() => {
+    if (chipRef.current && patternOverlay) {
+      const rect = chipRef.current.getBoundingClientRect();
+      setChipSize({ width: rect.width, height: rect.height });
+    }
+  }, [data.label, patternOverlay]);
+
+  // Calculate fade mask radii based on chip size (with padding for smooth fade)
+  const fadePadding = 30; // Extra padding around chip for fade effect
+  const fadeRadiusX = ((chipSize.width / 2 + fadePadding) / width) * 100;
+  const fadeRadiusY = ((chipSize.height / 2 + fadePadding) / height) * 100;
 
   // Exit animations
   const exitAnimations = {
@@ -232,11 +248,17 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
               <clipPath id={`pattern-clip-${id}`}>
                 <rect width={width} height={height} rx={borderRadius} />
               </clipPath>
-              {/* Radial gradient for fade mask - transparent center, opaque edges */}
-              <radialGradient id={`pattern-fade-${id}`}>
+              {/* Radial gradient for fade mask - sized to chip dimensions */}
+              <radialGradient
+                id={`pattern-fade-${id}`}
+                cx="50%"
+                cy="50%"
+                rx={`${fadeRadiusX}%`}
+                ry={`${fadeRadiusY}%`}
+              >
                 <stop offset="0%" stopColor="white" stopOpacity="0" />
-                <stop offset="35%" stopColor="white" stopOpacity="0.2" />
-                <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+                <stop offset="50%" stopColor="white" stopOpacity="0.3" />
+                <stop offset="80%" stopColor="white" stopOpacity="0.7" />
                 <stop offset="100%" stopColor="white" stopOpacity="1" />
               </radialGradient>
               <mask id={`pattern-mask-${id}`}>
@@ -282,6 +304,7 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
         {/* Content */}
         {patternOverlay ? (
           <Chip
+            ref={chipRef}
             label={data.label as string}
             sx={{
               position: 'relative',
