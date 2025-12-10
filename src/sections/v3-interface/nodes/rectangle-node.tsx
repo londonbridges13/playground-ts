@@ -6,6 +6,7 @@ import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 
 import { MagicBorder } from '../components/magic-border';
@@ -80,6 +81,9 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
 
   // Image background
   const backgroundImage = (data.backgroundImage as string) ?? null;
+
+  // Pattern overlay props
+  const patternOverlay = (data.patternOverlay as string) ?? null;
 
   // Background color
   const backgroundColor = (data.backgroundColor as string) ?? '#d0d0d0';
@@ -208,6 +212,49 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
           />
         )}
 
+        {/* Pattern Overlay with radial fade mask */}
+        {patternOverlay && (
+          <svg
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              pointerEvents: 'none',
+              mixBlendMode: 'overlay',
+              opacity: 0.8,
+              borderRadius: `${borderRadius}px`,
+            }}
+          >
+            <defs>
+              <clipPath id={`pattern-clip-${id}`}>
+                <rect width={width} height={height} rx={borderRadius} />
+              </clipPath>
+              {/* Radial gradient for fade mask - transparent center, opaque edges */}
+              <radialGradient id={`pattern-fade-${id}`}>
+                <stop offset="0%" stopColor="white" stopOpacity="0" />
+                <stop offset="35%" stopColor="white" stopOpacity="0.2" />
+                <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+                <stop offset="100%" stopColor="white" stopOpacity="1" />
+              </radialGradient>
+              <mask id={`pattern-mask-${id}`}>
+                <rect width={width} height={height} fill={`url(#pattern-fade-${id})`} />
+              </mask>
+            </defs>
+            {/* Pattern image with radial fade mask */}
+            <image
+              href={patternOverlay}
+              width={width}
+              height={height}
+              clipPath={`url(#pattern-clip-${id})`}
+              mask={`url(#pattern-mask-${id})`}
+              preserveAspectRatio="xMidYMid slice"
+            />
+          </svg>
+        )}
+
         {/* Border - Magic or Static */}
         {magicBorder ? (
           <MagicBorder
@@ -233,19 +280,34 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
         )}
 
         {/* Content */}
-        <Typography
-          variant="body2"
-          sx={{
-            position: 'relative',
-            zIndex: 3,
-            textAlign: 'center',
-            px: 2,
-            fontWeight: 500,
-            color: textColor,
-          }}
-        >
-          {data.label as string}
-        </Typography>
+        {patternOverlay ? (
+          <Chip
+            label={data.label as string}
+            sx={{
+              position: 'relative',
+              zIndex: 3,
+              fontWeight: 600,
+              backgroundColor: 'transparent',
+              color: textColor,
+              fontSize: '0.875rem',
+              textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+            }}
+          />
+        ) : (
+          <Typography
+            variant="body2"
+            sx={{
+              position: 'relative',
+              zIndex: 3,
+              textAlign: 'center',
+              px: 2,
+              fontWeight: 500,
+              color: textColor,
+            }}
+          >
+            {data.label as string}
+          </Typography>
+        )}
 
         {/* Connection Handles */}
         <Handle

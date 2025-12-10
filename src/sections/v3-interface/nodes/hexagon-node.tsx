@@ -6,6 +6,7 @@ import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 
 import { MagicHexBorder } from '../components/magic-border';
@@ -275,6 +276,9 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   // Image background props
   const backgroundImage = (data.backgroundImage as string) ?? null;
 
+  // Pattern overlay props
+  const patternOverlay = (data.patternOverlay as string) ?? null;
+
   // Grain props
   const grainAmount = (data.grainAmount as number) ?? 0;
   const grainBlendMode = (data.grainBlendMode as 'overlay' | 'soft-light' | 'multiply' | 'screen') ?? 'overlay';
@@ -466,6 +470,48 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
           />
         )}
 
+        {/* Pattern Overlay with radial fade mask */}
+        {patternOverlay && (
+          <svg
+            width="178"
+            height="174"
+            viewBox="0 0 178 174"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              pointerEvents: 'none',
+              mixBlendMode: 'overlay',
+              opacity: 0.8,
+            }}
+          >
+            <defs>
+              <clipPath id={`pattern-clip-${id}`}>
+                <path d={HEX_PATH} />
+              </clipPath>
+              {/* Radial gradient for fade mask - transparent center, opaque edges */}
+              <radialGradient id={`pattern-fade-${id}`}>
+                <stop offset="0%" stopColor="white" stopOpacity="0" />
+                <stop offset="35%" stopColor="white" stopOpacity="0.2" />
+                <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+                <stop offset="100%" stopColor="white" stopOpacity="1" />
+              </radialGradient>
+              <mask id={`pattern-mask-${id}`}>
+                <rect width="178" height="174" fill={`url(#pattern-fade-${id})`} />
+              </mask>
+            </defs>
+            {/* Pattern image with radial fade mask */}
+            <image
+              href={patternOverlay}
+              width="178"
+              height="174"
+              clipPath={`url(#pattern-clip-${id})`}
+              mask={`url(#pattern-mask-${id})`}
+              preserveAspectRatio="xMidYMid slice"
+            />
+          </svg>
+        )}
+
         {/* SVG Hexagon Fill (only if no mesh gradient, marble, or image) */}
         {!meshGradient && !marbleBackground && !backgroundImage && (
           <svg
@@ -522,19 +568,34 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
         )}
 
         {/* Content */}
-        <Typography
-          variant="body2"
-          sx={{
-            position: 'relative',
-            zIndex: 3,
-            textAlign: 'center',
-            px: 2,
-            fontWeight: 500,
-            color: textColor,
-          }}
-        >
-          {data.label as string}
-        </Typography>
+        {patternOverlay ? (
+          <Chip
+            label={data.label as string}
+            sx={{
+              position: 'relative',
+              zIndex: 3,
+              fontWeight: 600,
+              backgroundColor: 'transparent',
+              color: textColor,
+              fontSize: '0.875rem',
+              textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+            }}
+          />
+        ) : (
+          <Typography
+            variant="body2"
+            sx={{
+              position: 'relative',
+              zIndex: 3,
+              textAlign: 'center',
+              px: 2,
+              fontWeight: 500,
+              color: textColor,
+            }}
+          >
+            {data.label as string}
+          </Typography>
+        )}
 
         {/* Connection Handles */}
         <Handle
