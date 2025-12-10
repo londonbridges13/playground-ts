@@ -74,4 +74,17 @@ input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
 }
 
+/** **************************************
+* React Flow: Custom node selection overrides
+*************************************** */
+/* Hide React Flow's default rectangular selection for hexagon nodes */
+.react-flow__node-hexagon.selected {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Override React Flow's default selection box-shadow CSS variable */
+:root {
+  --xy-node-boxshadow-selected-default: none;
+}
 

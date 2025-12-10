@@ -274,6 +274,16 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
               mask={`url(#pattern-mask-${id})`}
               preserveAspectRatio="xMidYMid slice"
             />
+            {/* Red border ellipse at the edge of the fade mask (disabled - uncomment to debug) */}
+            {/* <ellipse
+              cx={width / 2}
+              cy={height / 2}
+              rx={(chipSize.width / 2) + fadePadding}
+              ry={(chipSize.height / 2) + fadePadding}
+              fill="none"
+              stroke="red"
+              strokeWidth="2"
+            /> */}
           </svg>
         )}
 

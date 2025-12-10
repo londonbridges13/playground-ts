@@ -369,7 +369,7 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
           ? [0.6, 0.01, 0.05, 0.95]
           : [0.43, 0.13, 0.23, 0.96],
       }}
-      style={{ width: '100%', height: '100%' }}
+      style={{ width: hexWidth, height: hexHeight }}
     >
       <Box
         sx={{
@@ -379,11 +379,44 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          outline: selected ? '2px solid #1976d2' : 'none',
-          outlineOffset: 4,
           filter: 'drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.2))',
         }}
       >
+        {/* Hexagonal Selection Outline */}
+        {selected && (
+          <svg
+            width="190"
+            height="186"
+            viewBox="0 0 190 186"
+            style={{
+              position: 'absolute',
+              top: -6,
+              left: -6,
+              pointerEvents: 'none',
+              zIndex: 1000,
+            }}
+          >
+            <defs>
+              <filter id={`selection-round-${id}`}>
+                <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
+                <feColorMatrix
+                  in="blur"
+                  mode="matrix"
+                  values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10"
+                  result="goo"
+                />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+              </filter>
+            </defs>
+            <path
+              d="M95 4 L172 48 L172 138 L95 182 L18 138 L18 48 Z"
+              fill="none"
+              stroke="#1976d2"
+              strokeWidth={3}
+              filter={`url(#selection-round-${id})`}
+            />
+          </svg>
+        )}
         {/* SVG Definitions */}
         <svg width="0" height="0" style={{ position: 'absolute' }}>
           <defs>
@@ -535,6 +568,16 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
               mask={`url(#pattern-mask-${id})`}
               preserveAspectRatio="xMidYMid slice"
             />
+            {/* Red border ellipse at the edge of the fade mask (disabled - uncomment to debug) */}
+            {/* <ellipse
+              cx={hexWidth / 2}
+              cy={hexHeight / 2}
+              rx={(chipSize.width / 2) + fadePadding}
+              ry={(chipSize.height / 2) + fadePadding}
+              fill="none"
+              stroke="red"
+              strokeWidth="2"
+            /> */}
           </svg>
         )}
 

@@ -159,7 +159,7 @@ export const SmartPulseButtonEdge = memo((props: EdgeProps) => {
   const buttonColor = edgeData?.buttonColor ?? '#ffffff';
   const buttonBgColor = edgeData?.buttonBgColor ?? 'rgba(158, 122, 255, 0.9)';
   const onButtonClick = edgeData?.onButtonClick;
-  const nodePadding = edgeData?.nodePadding ?? 15;
+  const nodePadding = edgeData?.nodePadding ?? 0;
   const gridRatio = edgeData?.gridRatio ?? 10;
   const handleOffset = edgeData?.handleOffset ?? 0;
 
