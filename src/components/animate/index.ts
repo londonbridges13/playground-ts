@@ -8,6 +8,8 @@ export * from './typing-animation';
 
 export * from './hyper-text';
 
+export * from './text-generate-effect';
+
 export * from './animate-text';
 
 export * from './animate-logo';

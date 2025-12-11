@@ -12,11 +12,12 @@ import {
 } from '@xyflow/react';
 import type { Node, Edge, NodeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 import Box from '@mui/material/Box';
 
 import { toast, Snackbar } from 'src/components/snackbar';
-import { BlurReveal, BlurFade, HyperText } from 'src/components/animate';
+import { BlurReveal, BlurFade, HyperText, TextGenerateEffect } from 'src/components/animate';
 
 import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
@@ -1182,6 +1183,68 @@ function V3InterfaceViewInner({
     updateInterval: 50,
   });
 
+  // Speech recognition for live transcription
+  const {
+    transcript,
+    interimTranscript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+  } = useSpeechRecognition();
+
+  // Ref for auto-scrolling transcript display
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
+
+  // Combine transcript + interimTranscript without doubling or gaps
+  const displayTranscript = useMemo(() => {
+    const trimmedInterim = interimTranscript?.trim() || '';
+
+    // If no interim, just show transcript
+    if (!trimmedInterim) return transcript || '';
+
+    // If no transcript yet, show interim
+    if (!transcript) return trimmedInterim;
+
+    // If transcript already ends with this interim content, don't add it (prevents doubling)
+    if (transcript.toLowerCase().endsWith(trimmedInterim.toLowerCase())) {
+      return transcript;
+    }
+
+    // Combine them: finalized + in-progress
+    return `${transcript} ${trimmedInterim}`;
+  }, [transcript, interimTranscript]);
+
+  // Auto-scroll to bottom when transcript updates
+  useEffect(() => {
+    if (transcriptScrollRef.current) {
+      transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
+    }
+  }, [displayTranscript]);
+
+  // Debug: Log browser support status on mount
+  useEffect(() => {
+    console.log('[SpeechRecognition] Browser supports speech recognition:', browserSupportsSpeechRecognition);
+  }, [browserSupportsSpeechRecognition]);
+
+  // Debug: Log listening state changes
+  useEffect(() => {
+    console.log('[SpeechRecognition] Listening state:', listening);
+  }, [listening]);
+
+  // Log transcript to console when it changes during recording
+  useEffect(() => {
+    if (transcript) {
+      console.log('[Transcription]', transcript);
+    }
+  }, [transcript]);
+
+  // Log interim transcript for real-time feedback
+  useEffect(() => {
+    if (interimTranscript) {
+      console.log('[Transcription - interim]', interimTranscript);
+    }
+  }, [interimTranscript]);
+
   // Intermediate text steps from "Researching ..." to "Done"
   // Uses random characters for shrinking transition
   const TRANSITION_STEPS = useMemo(() => {
@@ -1278,6 +1341,8 @@ function V3InterfaceViewInner({
 
   // Handle mic button click - toggle between recording states
   const handleMicClick = useCallback(() => {
+    console.log('[handleMicClick] Current status:', recordingStatus, 'Browser supports:', browserSupportsSpeechRecognition);
+
     // Clear any existing paused timeout
     if (pausedTimeoutRef.current) {
       clearTimeout(pausedTimeoutRef.current);
@@ -1291,12 +1356,19 @@ function V3InterfaceViewInner({
       setRecordingText('Recording ...');
       setRecordingStatus('recording');
       startAudioAnalyzer();
+      // Start speech recognition for live transcription
+      resetTranscript();
+      console.log('[handleMicClick] Starting speech recognition...');
+      SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
     } else if (recordingStatus === 'recording') {
       // Pause recording - use HyperText transition and stop audio analyzer
       setRecordingRevealing(false);
       setRecordingText('Paused');
       setRecordingStatus('paused');
       stopAudioAnalyzer();
+      // Stop speech recognition
+      console.log('[handleMicClick] Stopping speech recognition...');
+      SpeechRecognition.stopListening();
       // Start 3-second timer to fade out
       pausedTimeoutRef.current = setTimeout(() => {
         setRecordingStatus('fading');
@@ -1308,8 +1380,11 @@ function V3InterfaceViewInner({
       setRecordingText('Recording ...');
       setRecordingStatus('recording');
       startAudioAnalyzer();
+      // Resume speech recognition
+      console.log('[handleMicClick] Resuming speech recognition...');
+      SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
     }
-  }, [recordingStatus, startAudioAnalyzer, stopAudioAnalyzer]);
+  }, [recordingStatus, startAudioAnalyzer, stopAudioAnalyzer, resetTranscript, browserSupportsSpeechRecognition]);
 
   // Handle when paused fade-out is complete - reset to idle
   const handlePausedFadeComplete = useCallback(() => {
@@ -1317,6 +1392,8 @@ function V3InterfaceViewInner({
     setTriggerPausedFade(false);
     setRecordingText('Recording ...');
     stopAudioAnalyzer();
+    // Ensure speech recognition is stopped
+    SpeechRecognition.stopListening();
   }, [stopAudioAnalyzer]);
 
   // Handle mouse move on the pane to detect which grid square is hovered
@@ -1593,11 +1670,46 @@ function V3InterfaceViewInner({
           </BlurFade>
         )}
 
+        {/* Live transcription display - above recording label and waveform */}
+        {displayTranscript && recordingStatus === 'recording' && (
+          <Box
+            ref={transcriptScrollRef}
+            sx={{
+              mb: 1.5,
+              width: '100%',
+              maxHeight: 120,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              // Hide scrollbar but keep functionality
+              scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+              // Fade gradient at top for scroll effect when content overflows
+              maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 100%)',
+            }}
+          >
+            {/* Animated transcript with TextGenerateEffect */}
+            <TextGenerateEffect
+              words={displayTranscript}
+              filter
+              duration={0.3}
+              sx={{
+                fontSize: '0.875rem',
+                color: '#d1d5db',
+                letterSpacing: '0.01em',
+                lineHeight: 1.6,
+              }}
+            />
+          </Box>
+        )}
+
         {/* Recording Status Label - above input */}
         {/* Stable wrapper for waveform positioning */}
         {recordingStatus !== 'idle' && (
-          <Box sx={{ position: 'relative', width: '100%', mb: 1.5, ml: 1, pr: 1, minHeight: 24 }}>
-            {/* Initial recording state: BlurReveal with indicator on LEFT */}
+          <Box sx={{ position: 'relative', width: '100%', mb: 1.5, ml: 1, pr: 1 }}>
+            {/* Recording indicator wrapper */}
+            <Box sx={{ minHeight: 24 }}>
+              {/* Initial recording state: BlurReveal with indicator on LEFT */}
             {recordingStatus === 'recording' && recordingRevealing && (
               <BlurReveal duration={800} blur={8} sx={{ width: '100%' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -1719,6 +1831,7 @@ function V3InterfaceViewInner({
                 </Box>
               </BlurFade>
             )}
+            </Box>
 
             {/* SINGLE waveform instance - always positioned to the right of stable wrapper */}
             <RecordingWaveform
