@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { m } from 'framer-motion';
 
 // Constants adapted from line-graph/source.tsx
@@ -14,35 +14,29 @@ const BAR_STEP = BAR_WIDTH + BAR_GAP; // Total space per bar
 const WAVEFORM_SPRING = { stiffness: 300, damping: 25 };
 
 interface RecordingWaveformProps {
+  /** Whether the waveform should be animating (recording state) */
   isAnimating: boolean;
+  /** Whether the waveform is fading out */
   isFading?: boolean;
+  /** Audio levels from the analyzer (0-1 for each band) */
+  audioLevels?: number[];
+  /** Color when animating */
   color?: string;
+  /** Color when paused */
   pausedColor?: string;
 }
 
 export function RecordingWaveform({
   isAnimating,
   isFading = false,
+  audioLevels,
   color = '#d1d5db',
   pausedColor = '#9ca3af',
 }: RecordingWaveformProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Dynamic bar count based on container width
   const [barCount, setBarCount] = useState(16);
-  const [heights, setHeights] = useState<number[]>(() =>
-    Array.from({ length: 16 }, () => MIN_HEIGHT)
-  );
-
-  // Generate random heights for animation
-  const generateRandomHeights = useCallback(
-    (count: number) =>
-      Array.from({ length: count }, () =>
-        MIN_HEIGHT + Math.random() * (MAX_HEIGHT - MIN_HEIGHT)
-      ),
-    []
-  );
 
   // Observe container width and calculate bar count
   useEffect(() => {
@@ -55,12 +49,6 @@ export function RecordingWaveform({
       const count = Math.max(1, Math.floor(width / BAR_STEP));
       if (count !== barCount) {
         setBarCount(count);
-        // Only set heights on resize, not on isAnimating change
-        setHeights(
-          isAnimating
-            ? generateRandomHeights(count)
-            : Array.from({ length: count }, () => MIN_HEIGHT)
-        );
       }
     };
 
@@ -72,40 +60,37 @@ export function RecordingWaveform({
     resizeObserver.observe(container);
 
     return () => resizeObserver.disconnect();
-  }, [barCount, isAnimating, generateRandomHeights]);
+  }, [barCount]);
 
-  // Animation loop
-  useEffect(() => {
-    if (isAnimating) {
-      // Initial random heights with slight delay
-      const initialTimeout = setTimeout(() => {
-        setHeights(generateRandomHeights(barCount));
-      }, 50);
-
-      // Continuous animation
-      intervalRef.current = setInterval(() => {
-        setHeights(generateRandomHeights(barCount));
-      }, 150);
-
-      return () => {
-        clearTimeout(initialTimeout);
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
+  // Calculate heights from audio levels or use minimum
+  const heights = useMemo(() => {
+    if (!isAnimating || !audioLevels || audioLevels.length === 0) {
+      // Not animating or no audio data - return minimum heights
+      return Array.from({ length: barCount }, () => MIN_HEIGHT);
     }
 
-    // When not animating, stop the interval and animate to silence
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    // Only use voice-range frequencies (~0-4kHz = first 25% of bins)
+    // This stretches voice content across all bars instead of bunching on the left
+    const voiceRangeFraction = 0.55;
+    const voiceBins = Math.floor(audioLevels.length * voiceRangeFraction);
+    const step = voiceBins / barCount;
+
+    // Map audio levels to bar heights
+    const result: number[] = [];
+
+    for (let i = 0; i < barCount; i++) {
+      // Sample from voice-range bins only
+      const index = Math.floor(i * step);
+      const level = audioLevels[Math.min(index, voiceBins - 1)] || 0;
+      // Map level (0-1) to height (MIN_HEIGHT to MAX_HEIGHT)
+      // Apply some amplification for better visual effect
+      const amplifiedLevel = Math.min(1, level * 2.5);
+      const height = MIN_HEIGHT + amplifiedLevel * (MAX_HEIGHT - MIN_HEIGHT);
+      result.push(height);
     }
 
-    // Animate transition to minimum height (spring will handle smooth transition)
-    setHeights(Array.from({ length: barCount }, () => MIN_HEIGHT));
-
-    return undefined;
-  }, [isAnimating, barCount, generateRandomHeights]);
+    return result;
+  }, [isAnimating, audioLevels, barCount]);
 
   return (
     <m.div

@@ -26,7 +26,7 @@ import { RecordingWaveform } from './components/recording-waveform';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
-import { useCenteredNodes } from './hooks/use-centered-nodes';
+import { useCenteredNodes, useAudioAnalyzer } from './hooks';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType } from './types';
 
@@ -1176,6 +1176,12 @@ function V3InterfaceViewInner({
   // Ref for paused timeout
   const pausedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Audio analyzer for voice-reactive waveform
+  const { audioLevels, start: startAudioAnalyzer, stop: stopAudioAnalyzer } = useAudioAnalyzer({
+    bandCount: 32,
+    updateInterval: 50,
+  });
+
   // Intermediate text steps from "Researching ..." to "Done"
   // Uses random characters for shrinking transition
   const TRANSITION_STEPS = useMemo(() => {
@@ -1279,35 +1285,39 @@ function V3InterfaceViewInner({
     }
 
     if (recordingStatus === 'idle' || recordingStatus === 'fading') {
-      // Start recording - show with BlurReveal
+      // Start recording - show with BlurReveal and start audio analyzer
       setTriggerPausedFade(false);
       setRecordingRevealing(true);
       setRecordingText('Recording ...');
       setRecordingStatus('recording');
+      startAudioAnalyzer();
     } else if (recordingStatus === 'recording') {
-      // Pause recording - use HyperText transition
+      // Pause recording - use HyperText transition and stop audio analyzer
       setRecordingRevealing(false);
       setRecordingText('Paused');
       setRecordingStatus('paused');
+      stopAudioAnalyzer();
       // Start 3-second timer to fade out
       pausedTimeoutRef.current = setTimeout(() => {
         setRecordingStatus('fading');
         setTriggerPausedFade(true);
       }, 3000);
     } else if (recordingStatus === 'paused') {
-      // Resume recording - use HyperText transition
+      // Resume recording - use HyperText transition and restart audio analyzer
       setRecordingRevealing(false);
       setRecordingText('Recording ...');
       setRecordingStatus('recording');
+      startAudioAnalyzer();
     }
-  }, [recordingStatus]);
+  }, [recordingStatus, startAudioAnalyzer, stopAudioAnalyzer]);
 
   // Handle when paused fade-out is complete - reset to idle
   const handlePausedFadeComplete = useCallback(() => {
     setRecordingStatus('idle');
     setTriggerPausedFade(false);
     setRecordingText('Recording ...');
-  }, []);
+    stopAudioAnalyzer();
+  }, [stopAudioAnalyzer]);
 
   // Handle mouse move on the pane to detect which grid square is hovered
   const handlePaneMouseMove = useCallback(
@@ -1714,6 +1724,7 @@ function V3InterfaceViewInner({
             <RecordingWaveform
               isAnimating={recordingStatus === 'recording'}
               isFading={recordingStatus === 'fading'}
+              audioLevels={audioLevels}
             />
           </Box>
         )}
