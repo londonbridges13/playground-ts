@@ -231,3 +231,19 @@ export interface MentionTabsMenuProps {
   searchQuery?: string;
 }
 
+// ----------------------------------------------------------------------
+// Floating Node Form Types
+// ----------------------------------------------------------------------
+
+export interface NodeFormData {
+  label: string;
+  content: any | null; // JSONContent from Novel/Tiptap
+  backgroundImage: string | null;
+}
+
+export interface FloatingNodeFormProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: NodeFormData) => void;
+}
+

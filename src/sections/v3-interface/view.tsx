@@ -23,13 +23,14 @@ import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
 import { FloatingTextInput } from './components/floating-text-input';
 import { FloatingChatView } from './components/floating-chat-view';
+import { FloatingNodeForm } from './components/floating-node-form';
 import { RecordingWaveform } from './components/recording-waveform';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
 import { useCenteredNodes, useAudioAnalyzer } from './hooks';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
-import type { V3InterfaceProps, BackgroundType } from './types';
+import type { V3InterfaceProps, BackgroundType, NodeFormData } from './types';
 
 // Node types - defined outside component, memoized
 const nodeTypes = { circular: CircularNode, hexagon: HexagonNode, rectangle: RectangleNode };
@@ -1166,6 +1167,9 @@ function V3InterfaceViewInner({
   const [chatOpen, setChatOpen] = useState(false);
   const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
 
+  // State for floating node form
+  const [nodeFormOpen, setNodeFormOpen] = useState(false);
+
   // State for recording status: 'idle' | 'recording' | 'paused' | 'fading'
   const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'paused' | 'fading'>('idle');
   // Text for recording HyperText component
@@ -1312,6 +1316,76 @@ function V3InterfaceViewInner({
     setChatOpen(false);
     setInitialChatMessage(null);
   }, []);
+
+  // Handle opening the node form
+  const handleOpenNodeForm = useCallback(() => {
+    setNodeFormOpen(true);
+  }, []);
+
+  // Handle closing the node form
+  const handleCloseNodeForm = useCallback(() => {
+    setNodeFormOpen(false);
+  }, []);
+
+  // Keyboard shortcut to open node form (press 'n' key)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Press 'n' to open node form
+      if (event.key === 'n' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setNodeFormOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Handle creating a new node from the form
+  const handleCreateNode = useCallback((formData: NodeFormData) => {
+    const { screenToFlowPosition, getViewport } = reactFlowInstance;
+
+    // Get the center of the current viewport
+    const viewport = getViewport();
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+
+    // Convert screen center to flow position
+    const flowPosition = screenToFlowPosition({ x: centerX, y: centerY });
+
+    // Create a new hex node matching the "Magic" template
+    const newNode: Node = {
+      id: `hex-${Date.now()}`,
+      type: 'hexagon',
+      position: flowPosition,
+      data: {
+        label: formData.label,
+        content: formData.content,
+        index: nodes.length,
+        backgroundImage: formData.backgroundImage || '/magic-mg1.png',
+        grainAmount: 25,
+        grainBlendMode: 'overlay',
+        borderWidth: 5,
+        textColor: '#ffffff',
+        showFloatingHandles: true,
+        handleSize: 16,
+        handleColor: '#d1d5db',
+        handleOffset: 10,
+      },
+    };
+
+    setNodes((currentNodes) => [...currentNodes, newNode]);
+    toast.success(`Node "${formData.label}" created!`);
+  }, [nodes.length]);
+
+  // Get ReactFlow instance for position calculations
+  const reactFlowInstance = useReactFlow();
 
   // Handle when HyperText completes each step - advance to next step
   const handleHyperTextComplete = useCallback(() => {
@@ -1845,6 +1919,7 @@ function V3InterfaceViewInner({
         <FloatingTextInput
           onSend={handleSendMessage}
           onMicClick={handleMicClick}
+          onCreateNode={handleOpenNodeForm}
           recordingStatus={recordingStatus}
         />
 
@@ -1855,6 +1930,13 @@ function V3InterfaceViewInner({
           initialMessage={initialChatMessage}
           contextTitle="V3 Interface"
           contextSubtitle="localhost"
+        />
+
+        {/* Floating Node Form */}
+        <FloatingNodeForm
+          open={nodeFormOpen}
+          onClose={handleCloseNodeForm}
+          onSave={handleCreateNode}
         />
       </Box>
 

@@ -32,13 +32,16 @@ type FloatingTextInputProps = {
   onSend?: (message: string) => void;
   onGoalSelect?: (goalId: string) => void;
   onMicClick?: () => void;
+  onCreateNode?: () => void;
   recordingStatus?: RecordingStatus;
   currentGoalId?: string;
 };
 
-export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
+export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNode, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [goalMenuAnchor, setGoalMenuAnchor] = useState<null | HTMLElement>(null);
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
+  const moreMenuOpen = Boolean(moreMenuAnchor);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [showShine, setShowShine] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -153,6 +156,19 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, recordingS
       onGoalSelect(goalId);
       setInputValue('');
     }
+  };
+
+  const handleMoreMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMoreMenuAnchor(event.currentTarget);
+  };
+
+  const handleMoreMenuClose = () => {
+    setMoreMenuAnchor(null);
+  };
+
+  const handleCreateNodeClick = () => {
+    handleMoreMenuClose();
+    onCreateNode?.();
   };
 
   return (
@@ -332,6 +348,7 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, recordingS
 
           <IconButton
             size="small"
+            onClick={handleMoreMenuOpen}
             sx={{
               p: 0.5,
               color: '#9ca3af',
@@ -343,6 +360,32 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, recordingS
           >
             <MoreHorizIcon sx={{ fontSize: 20 }} />
           </IconButton>
+
+          {/* More Options Menu */}
+          <Menu
+            anchorEl={moreMenuAnchor}
+            open={moreMenuOpen}
+            onClose={handleMoreMenuClose}
+            anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            slotProps={{
+              paper: {
+                sx: {
+                  mt: -1,
+                  minWidth: 200,
+                  borderRadius: '12px',
+                  boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.15)',
+                },
+              },
+            }}
+          >
+            <MenuItem onClick={handleCreateNodeClick}>
+              <ListItemIcon>
+                <Iconify icon="solar:add-circle-bold" width={20} />
+              </ListItemIcon>
+              <ListItemText primary="Create Node v1" />
+            </MenuItem>
+          </Menu>
         </Box>
 
         {/* Right side: Mic + Send button */}
