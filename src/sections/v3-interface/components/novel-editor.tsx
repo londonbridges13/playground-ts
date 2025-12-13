@@ -33,6 +33,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 interface NovelEditorProps {
   onChange?: (content: JSONContent) => void;
   initialContent?: JSONContent;
+  editable?: boolean;
 }
 
 // ----------------------------------------------------------------------
@@ -194,14 +195,14 @@ const extensions = [
   slashCommand,
 ];
 
-export function NovelEditor({ onChange, initialContent }: NovelEditorProps) {
+export function NovelEditor({ onChange, initialContent, editable = true }: NovelEditorProps) {
   const handleUpdate = useCallback(
     ({ editor }: { editor: any }) => {
-      if (onChange) {
+      if (onChange && editable) {
         onChange(editor.getJSON());
       }
     },
-    [onChange]
+    [onChange, editable]
   );
 
   return (
@@ -291,80 +292,83 @@ export function NovelEditor({ onChange, initialContent }: NovelEditorProps) {
           initialContent={initialContent}
           onUpdate={handleUpdate}
           editorProps={{
+            editable: () => editable,
             handleDOMEvents: {
-              keydown: (_view, event) => handleCommandNavigation(event),
+              keydown: (_view, event) => editable ? handleCommandNavigation(event) : false,
             },
             attributes: {
               class: 'tiptap',
             },
           }}
         >
-          <EditorCommand
-            style={{
-              zIndex: 50,
-              height: 'auto',
-              maxHeight: '330px',
-              width: '288px',
-              overflow: 'hidden',
-              overflowY: 'auto',
-              borderRadius: '8px',
-              border: '1px solid #374151',
-              backgroundColor: '#1f2937',
-              padding: '8px',
-              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            <EditorCommandEmpty style={{ padding: '8px', color: '#9ca3af' }}>
-              No results
-            </EditorCommandEmpty>
-            <EditorCommandList>
-              {suggestionItems.map((item: any) => (
-                <EditorCommandItem
-                  key={item.title}
-                  value={item.title}
-                  onCommand={(val) => item.command(val)}
-                  style={{
-                    display: 'flex',
-                    width: '100%',
-                    alignItems: 'center',
-                    gap: '8px',
-                    borderRadius: '6px',
-                    padding: '8px',
-                    textAlign: 'left',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    color: '#e5e7eb',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#374151';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <Box
-                    sx={{
+          {editable && (
+            <EditorCommand
+              style={{
+                zIndex: 50,
+                height: 'auto',
+                maxHeight: '330px',
+                width: '288px',
+                overflow: 'hidden',
+                overflowY: 'auto',
+                borderRadius: '8px',
+                border: '1px solid #374151',
+                backgroundColor: '#1f2937',
+                padding: '8px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              <EditorCommandEmpty style={{ padding: '8px', color: '#9ca3af' }}>
+                No results
+              </EditorCommandEmpty>
+              <EditorCommandList>
+                {suggestionItems.map((item: any) => (
+                  <EditorCommandItem
+                    key={item.title}
+                    value={item.title}
+                    onCommand={(val) => item.command(val)}
+                    style={{
                       display: 'flex',
-                      height: 40,
-                      width: 40,
+                      width: '100%',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 1,
-                      border: '1px solid #374151',
-                      bgcolor: '#111827',
-                      color: '#9ca3af',
+                      gap: '8px',
+                      borderRadius: '6px',
+                      padding: '8px',
+                      textAlign: 'left',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      color: '#e5e7eb',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#374151';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
-                    {item.icon}
-                  </Box>
-                  <Box>
-                    <Box sx={{ fontWeight: 500, color: '#f3f4f6' }}>{item.title}</Box>
-                    <Box sx={{ fontSize: '12px', color: '#9ca3af' }}>{item.description}</Box>
-                  </Box>
-                </EditorCommandItem>
-              ))}
-            </EditorCommandList>
-          </EditorCommand>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        height: 40,
+                        width: 40,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 1,
+                        border: '1px solid #374151',
+                        bgcolor: '#111827',
+                        color: '#9ca3af',
+                      }}
+                    >
+                      {item.icon}
+                    </Box>
+                    <Box>
+                      <Box sx={{ fontWeight: 500, color: '#f3f4f6' }}>{item.title}</Box>
+                      <Box sx={{ fontSize: '12px', color: '#9ca3af' }}>{item.description}</Box>
+                    </Box>
+                  </EditorCommandItem>
+                ))}
+              </EditorCommandList>
+            </EditorCommand>
+          )}
         </EditorContent>
       </EditorRoot>
     </Box>

@@ -9,8 +9,12 @@ import {
   PanOnScrollMode,
   useReactFlow,
   applyNodeChanges,
+  applyEdgeChanges,
+  addEdge,
+  ConnectionLineType,
+  ConnectionMode,
 } from '@xyflow/react';
-import type { Node, Edge, NodeChange } from '@xyflow/react';
+import type { Node, Edge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
@@ -26,6 +30,7 @@ import { FloatingChatView } from './components/floating-chat-view';
 import { FloatingNodeForm } from './components/floating-node-form';
 import { RecordingWaveform } from './components/recording-waveform';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
+import { V3AppStoreDialog } from './components/v3-appstore-dialog';
 import { CircularNode, HexagonNode, RectangleNode } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
 import { useCenteredNodes, useAudioAnalyzer } from './hooks';
@@ -1134,7 +1139,7 @@ function V3InterfaceViewInner({
 }: V3InterfaceProps) {
   const baseCenteredNodes = useCenteredNodes(initialNodes);
   const [nodes, setNodes] = useState<Node[]>(baseCenteredNodes);
-  const [edges] = useState<Edge[]>(initialEdges);
+  const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
   const memoizedEdgeTypes = useMemo(() => edgeTypes, []);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1150,6 +1155,50 @@ function V3InterfaceViewInner({
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
   );
+
+  // Handle edge changes (deletion, selection, etc.)
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    []
+  );
+
+  // Handle new connections between nodes
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...connection,
+            type: 'smartPulseButton',
+            data: {
+              strokeColor: 'rgba(158, 122, 255, 0.8)',
+              strokeWidth: 2.5,
+              dashArray: '6 8',
+              buttonIcon: 'eva:link-2-fill',
+              buttonSize: 30,
+              buttonColor: '#ffffff',
+              buttonBgColor: 'rgba(158, 122, 255, 0.9)',
+              nodePadding: 20,
+              gridRatio: 10,
+              handleOffset: 10,
+            },
+          },
+          eds
+        )
+      );
+    },
+    []
+  );
+
+  // State for App Store dialog
+  const [appStoreDialogOpen, setAppStoreDialogOpen] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+
+  // Handle node double-click to open App Store dialog
+  const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    setSelectedNode(node);
+    setAppStoreDialogOpen(true);
+  }, []);
 
   // State for hovered grid square
   const [hoveredSquare, setHoveredSquare] = useState<number | null>(null);
@@ -1369,6 +1418,7 @@ function V3InterfaceViewInner({
         content: formData.content,
         index: nodes.length,
         backgroundImage: formData.backgroundImage || '/magic-mg1.png',
+        patternOverlay: formData.patternOverlay || null,
         grainAmount: 25,
         grainBlendMode: 'overlay',
         borderWidth: 5,
@@ -1588,6 +1638,14 @@ function V3InterfaceViewInner({
         nodeTypes={memoizedNodeTypes}
         edgeTypes={memoizedEdgeTypes}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onNodeDoubleClick={onNodeDoubleClick}
+        connectionLineType={ConnectionLineType.Bezier}
+        connectionLineStyle={{ stroke: 'rgba(158, 122, 255, 0.8)', strokeWidth: 2.5 }}
+        connectionMode={ConnectionMode.Loose}
+        connectionRadius={40}
+        defaultEdgeOptions={{ type: 'smartPulseButton' }}
         panOnScroll
         panOnScrollMode={PanOnScrollMode.Free}
         panOnScrollSpeed={1.3}
@@ -1942,6 +2000,18 @@ function V3InterfaceViewInner({
 
       {/* Snackbar Toast Container - Bottom Right Corner */}
       <Snackbar position="bottom-right" />
+
+      {/* App Store Dialog */}
+      <V3AppStoreDialog
+        open={appStoreDialogOpen}
+        node={selectedNode}
+        onClose={() => setAppStoreDialogOpen(false)}
+        onStartChat={(node) => {
+          setAppStoreDialogOpen(false);
+          setInitialChatMessage(`Tell me about "${node.data?.label || 'this node'}"`);
+          setChatOpen(true);
+        }}
+      />
     </CanvasContainer>
   );
 }

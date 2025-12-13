@@ -319,6 +319,9 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   const chipRef = useRef<HTMLDivElement>(null);
   const [chipSize, setChipSize] = useState({ width: 80, height: 32 });
 
+  // Hover state for showing handles
+  const [isHovered, setIsHovered] = useState(false);
+
   // Hexagon dimensions
   const hexWidth = 178;
   const hexHeight = 174;
@@ -370,6 +373,8 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
           : [0.43, 0.13, 0.23, 0.96],
       }}
       style={{ width: hexWidth, height: hexHeight }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <Box
         sx={{
@@ -667,18 +672,52 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
           </Typography>
         )}
 
-        {/* Connection Handles */}
+        {/* Invisible center handle - covers entire node for easy drop target */}
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="center"
+          isConnectable={isConnectable}
+          style={{
+            width: hexWidth,
+            height: hexHeight,
+            background: 'transparent',
+            border: 'none',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: 0,
+            pointerEvents: 'all',
+          }}
+        />
+        {/* Connection Handles - visible on hover */}
         <Handle
           type="target"
           position={Position.Top}
           isConnectable={isConnectable}
-          style={{ background: '#555', top: 10, opacity: 0 }}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            top: 10,
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
         />
         <Handle
           type="source"
           position={Position.Bottom}
           isConnectable={isConnectable}
-          style={{ background: '#555', bottom: 10, opacity: 0 }}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            bottom: 10,
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
         />
         <Handle
           type="target"
@@ -694,8 +733,18 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
                   border: `2px solid ${handleColor}`,
                   borderRadius: '50%',
                   left: -handleOffset,
+                  opacity: isHovered ? 1 : 0,
+                  transition: 'opacity 0.2s ease',
                 }
-              : { background: '#555', left: 30, opacity: 0 }
+              : {
+                  width: 12,
+                  height: 12,
+                  background: '#6366f1',
+                  border: '2px solid #fff',
+                  left: 30,
+                  opacity: isHovered ? 1 : 0,
+                  transition: 'opacity 0.2s ease',
+                }
           }
         />
         <Handle
@@ -712,8 +761,18 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
                   border: `2px solid ${handleColor}`,
                   borderRadius: '50%',
                   right: -handleOffset,
+                  opacity: isHovered ? 1 : 0,
+                  transition: 'opacity 0.2s ease',
                 }
-              : { background: '#555', right: 30, opacity: 0 }
+              : {
+                  width: 12,
+                  height: 12,
+                  background: '#6366f1',
+                  border: '2px solid #fff',
+                  right: 30,
+                  opacity: isHovered ? 1 : 0,
+                  transition: 'opacity 0.2s ease',
+                }
           }
         />
       </Box>

@@ -52,18 +52,6 @@ export function FloatingChatView({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Lock body scroll when open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [open]);
-
   // Set initial position (right-aligned) and size (full height) when opening
   useEffect(() => {
     if (open && typeof window !== 'undefined') {
@@ -342,36 +330,19 @@ export function FloatingChatView({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <>
-          {/* Backdrop */}
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={onClose}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.1)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 9998,
-            }}
-          />
-
-          {/* Floating Panel with Rnd */}
-          <m.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              pointerEvents: 'none',
-              zIndex: 9999,
-            }}
-          >
+        /* Floating Panel - No backdrop, allows interaction with canvas */
+        <m.div
+          initial={{ opacity: 0, scale: 0.95, x: 20 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          exit={{ opacity: 0, scale: 0.95, x: 20 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 9999,
+          }}
+        >
             <Rnd
               position={position}
               size={size}
@@ -457,7 +428,6 @@ export function FloatingChatView({
               </Box>
             </Rnd>
           </m.div>
-        </>
       )}
     </AnimatePresence>,
     document.body

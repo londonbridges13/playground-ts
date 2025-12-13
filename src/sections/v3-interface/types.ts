@@ -239,6 +239,7 @@ export interface NodeFormData {
   label: string;
   content: any | null; // JSONContent from Novel/Tiptap
   backgroundImage: string | null;
+  patternOverlay?: string | null;
 }
 
 export interface FloatingNodeFormProps {

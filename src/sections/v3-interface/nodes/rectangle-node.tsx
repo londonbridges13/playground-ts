@@ -115,6 +115,9 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
   const chipRef = useRef<HTMLDivElement>(null);
   const [chipSize, setChipSize] = useState({ width: 80, height: 32 });
 
+  // Hover state for showing handles
+  const [isHovered, setIsHovered] = useState(false);
+
   useLayoutEffect(() => {
     if (chipRef.current && patternOverlay) {
       const rect = chipRef.current.getBoundingClientRect();
@@ -162,6 +165,8 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
           : [0.43, 0.13, 0.23, 0.96],
       }}
       style={{ width: '100%', height: '100%' }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <Box
         sx={{
@@ -342,32 +347,79 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
           </Typography>
         )}
 
-        {/* Connection Handles */}
+        {/* Invisible center handle - covers entire node for easy drop target */}
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="center"
+          isConnectable={isConnectable}
+          style={{
+            width,
+            height,
+            background: 'transparent',
+            border: 'none',
+            borderRadius,
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: 0,
+            pointerEvents: 'all',
+          }}
+        />
+        {/* Connection Handles - visible on hover */}
         <Handle
           type="target"
           position={Position.Top}
           isConnectable={isConnectable}
-          style={{ background: '#555', opacity: 0 }}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
         />
         <Handle
           type="source"
           position={Position.Bottom}
           isConnectable={isConnectable}
-          style={{ background: '#555', opacity: 0 }}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
         />
         <Handle
           type="target"
           position={Position.Left}
           id="left"
           isConnectable={isConnectable}
-          style={{ background: '#555', opacity: 0 }}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
         />
         <Handle
           type="source"
           position={Position.Right}
           id="right"
           isConnectable={isConnectable}
-          style={{ background: '#555', opacity: 0 }}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
         />
       </Box>
     </m.div>

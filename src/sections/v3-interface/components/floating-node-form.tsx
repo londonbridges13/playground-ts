@@ -29,11 +29,28 @@ const MIN_HEIGHT = 480;
 const MAX_WIDTH = 700;
 const MAX_HEIGHT_RATIO = 0.9;
 
-// Background presets for Magic Hex nodes
+// Background presets for Magic Hex nodes (12 mesh backgrounds)
 const BACKGROUND_PRESETS = [
   { id: 'magic1', label: 'Magic 1', image: '/magic-mg1.png' },
   { id: 'magic2', label: 'Magic 2', image: '/magic-mg2.png' },
+  { id: 'magic3', label: 'Magic 3', image: '/mesh/magic3.png' },
+  { id: 'magic4', label: 'Magic 4', image: '/mesh/magic4.png' },
+  { id: 'magic5', label: 'Magic 5', image: '/mesh/magic5.png' },
+  { id: 'magic6', label: 'Magic 6', image: '/mesh/magic6.png' },
+  { id: 'magic7', label: 'Magic 7', image: '/mesh/magic7.png' },
+  { id: 'magic8', label: 'Magic 8', image: '/mesh/magic8.png' },
+  { id: 'magic9', label: 'Magic 9', image: '/mesh/magic9.png' },
+  { id: 'magic10', label: 'Magic 10', image: '/mesh/magic10.png' },
+  { id: 'magic11', label: 'Magic 11', image: '/mesh/magic11.png' },
+  { id: 'magic12', label: 'Magic 12', image: '/mesh/magic12.png' },
   { id: 'none', label: 'None', image: null },
+];
+
+// SVG Pattern overlays
+const PATTERN_PRESETS = [
+  { id: 'none', label: 'None', pattern: null },
+  { id: 'pattern1', label: 'Pattern 1', pattern: '/node-patterns/pattern-1.svg' },
+  { id: 'pattern2', label: 'Pattern 2', pattern: '/node-patterns/pattern-2.svg' },
 ];
 
 // ----------------------------------------------------------------------
@@ -52,20 +69,9 @@ export function FloatingNodeForm({
   const [label, setLabel] = useState('');
   const [content, setContent] = useState<JSONContent | null>(null);
   const [selectedBackground, setSelectedBackground] = useState(BACKGROUND_PRESETS[0].id);
+  const [selectedPattern, setSelectedPattern] = useState(PATTERN_PRESETS[0].id);
 
-  // Lock body scroll when open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [open]);
-
-  // Set initial position (centered) when opening
+  // Set initial position (right side) when opening
   useEffect(() => {
     if (open && typeof window !== 'undefined') {
       const padding = 24;
@@ -73,7 +79,8 @@ export function FloatingNodeForm({
       const viewportWidth = window.innerWidth;
 
       const newHeight = Math.min(DEFAULT_SIZE.height, viewportHeight - padding * 2);
-      const newX = (viewportWidth - DEFAULT_SIZE.width) / 2;
+      // Position on the right side of the screen
+      const newX = viewportWidth - DEFAULT_SIZE.width - padding;
       const newY = (viewportHeight - newHeight) / 2;
 
       setSize({ width: DEFAULT_SIZE.width, height: newHeight });
@@ -87,21 +94,24 @@ export function FloatingNodeForm({
       setLabel('');
       setContent(null);
       setSelectedBackground(BACKGROUND_PRESETS[0].id);
+      setSelectedPattern(PATTERN_PRESETS[0].id);
       setPosition(DEFAULT_POSITION);
       setSize(DEFAULT_SIZE);
     }
   }, [open]);
 
   const handleSave = useCallback(() => {
-    const preset = BACKGROUND_PRESETS.find((p) => p.id === selectedBackground);
+    const bgPreset = BACKGROUND_PRESETS.find((p) => p.id === selectedBackground);
+    const patternPreset = PATTERN_PRESETS.find((p) => p.id === selectedPattern);
     const formData: NodeFormData = {
       label: label.trim() || 'New Node',
       content,
-      backgroundImage: preset?.image || null,
+      backgroundImage: bgPreset?.image || null,
+      patternOverlay: patternPreset?.pattern || null,
     };
     onSave(formData);
     onClose();
-  }, [label, content, selectedBackground, onSave, onClose]);
+  }, [label, content, selectedBackground, selectedPattern, onSave, onClose]);
 
   const handleContentChange = useCallback((newContent: JSONContent) => {
     setContent(newContent);
@@ -199,12 +209,39 @@ export function FloatingNodeForm({
               label={preset.label}
               onClick={() => setSelectedBackground(preset.id)}
               variant={selectedBackground === preset.id ? 'filled' : 'outlined'}
+              size="small"
               sx={{
                 bgcolor: selectedBackground === preset.id ? '#6366f1' : 'transparent',
                 color: selectedBackground === preset.id ? 'white' : '#374151',
                 borderColor: '#d1d5db',
                 '&:hover': {
                   bgcolor: selectedBackground === preset.id ? '#4f46e5' : '#f3f4f6',
+                },
+              }}
+            />
+          ))}
+        </Box>
+      </Box>
+
+      {/* Pattern Overlay */}
+      <Box>
+        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+          Pattern Overlay
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {PATTERN_PRESETS.map((preset) => (
+            <Chip
+              key={preset.id}
+              label={preset.label}
+              onClick={() => setSelectedPattern(preset.id)}
+              variant={selectedPattern === preset.id ? 'filled' : 'outlined'}
+              size="small"
+              sx={{
+                bgcolor: selectedPattern === preset.id ? '#6366f1' : 'transparent',
+                color: selectedPattern === preset.id ? 'white' : '#374151',
+                borderColor: '#d1d5db',
+                '&:hover': {
+                  bgcolor: selectedPattern === preset.id ? '#4f46e5' : '#f3f4f6',
                 },
               }}
             />
@@ -248,28 +285,11 @@ export function FloatingNodeForm({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <>
-          {/* Backdrop */}
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={onClose}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 9998,
-            }}
-          />
-
-          {/* Floating Panel */}
-          <m.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        /* Floating Panel - No backdrop, allows interaction with canvas */
+        <m.div
+            initial={{ opacity: 0, scale: 0.95, x: 20 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.95, x: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             style={{
               position: 'fixed',
@@ -324,7 +344,6 @@ export function FloatingNodeForm({
               </Box>
             </Rnd>
           </m.div>
-        </>
       )}
     </AnimatePresence>,
     document.body

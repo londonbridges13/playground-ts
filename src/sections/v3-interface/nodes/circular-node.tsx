@@ -903,11 +903,80 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
           </Typography>
         )}
 
-        {/* Handles */}
-        <Handle type="target" position={Position.Top} isConnectable={isConnectable} />
-        <Handle type="source" position={Position.Bottom} isConnectable={isConnectable} />
-        <Handle type="target" position={Position.Left} id="left" isConnectable={isConnectable} />
-        <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} />
+        {/* Invisible center handle - covers entire node for easy drop target */}
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="center"
+          isConnectable={isConnectable}
+          style={{
+            width: size,
+            height: size,
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '50%',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: 0,
+            pointerEvents: 'all',
+          }}
+        />
+        {/* Handles - visible on hover */}
+        <Handle
+          type="target"
+          position={Position.Top}
+          isConnectable={isConnectable}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          isConnectable={isConnectable}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
+        />
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="left"
+          isConnectable={isConnectable}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="right"
+          isConnectable={isConnectable}
+          style={{
+            width: 12,
+            height: 12,
+            background: '#6366f1',
+            border: '2px solid #fff',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
+        />
       </Box>
 
       {/* Light Rays Effect - rendered on top */}
