@@ -18,7 +18,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Iconify } from 'src/components/iconify';
 
 import { NovelEditor } from './novel-editor';
-import type { FloatingNodeFormProps, NodeFormData } from '../types';
+import type { FloatingNodeFormProps, NodeFormData, NodeShape } from '../types';
 
 // ----------------------------------------------------------------------
 
@@ -53,6 +53,21 @@ const PATTERN_PRESETS = [
   { id: 'pattern2', label: 'Pattern 2', pattern: '/node-patterns/pattern-2.svg' },
 ];
 
+// Shape presets for node creation
+const SHAPE_PRESETS: { id: NodeShape; label: string; icon: string }[] = [
+  { id: 'hexagon', label: 'Hexagon', icon: 'tabler:hexagon' },
+  { id: 'circular', label: 'Circle', icon: 'tabler:circle' },
+  { id: 'rectangle', label: 'Rectangle', icon: 'tabler:square' },
+  { id: 'diamond', label: 'Diamond', icon: 'tabler:diamond' },
+  { id: 'oval', label: 'Oval', icon: 'tabler:oval' },
+  { id: 'pill', label: 'Pill', icon: 'tabler:pill' },
+  { id: 'triangle', label: 'Triangle', icon: 'tabler:triangle' },
+  { id: 'pentagon', label: 'Pentagon', icon: 'tabler:pentagon' },
+  { id: 'octagon', label: 'Octagon', icon: 'tabler:octagon' },
+  { id: 'star', label: 'Star', icon: 'tabler:star' },
+  { id: 'cloud', label: 'Cloud', icon: 'tabler:cloud' },
+];
+
 // ----------------------------------------------------------------------
 
 export function FloatingNodeForm({
@@ -70,6 +85,7 @@ export function FloatingNodeForm({
   const [content, setContent] = useState<JSONContent | null>(null);
   const [selectedBackground, setSelectedBackground] = useState(BACKGROUND_PRESETS[0].id);
   const [selectedPattern, setSelectedPattern] = useState(PATTERN_PRESETS[0].id);
+  const [selectedShape, setSelectedShape] = useState<NodeShape>(SHAPE_PRESETS[0].id);
 
   // Set initial position (right side) when opening
   useEffect(() => {
@@ -95,6 +111,7 @@ export function FloatingNodeForm({
       setContent(null);
       setSelectedBackground(BACKGROUND_PRESETS[0].id);
       setSelectedPattern(PATTERN_PRESETS[0].id);
+      setSelectedShape(SHAPE_PRESETS[0].id);
       setPosition(DEFAULT_POSITION);
       setSize(DEFAULT_SIZE);
     }
@@ -108,10 +125,11 @@ export function FloatingNodeForm({
       content,
       backgroundImage: bgPreset?.image || null,
       patternOverlay: patternPreset?.pattern || null,
+      shape: selectedShape,
     };
     onSave(formData);
     onClose();
-  }, [label, content, selectedBackground, selectedPattern, onSave, onClose]);
+  }, [label, content, selectedBackground, selectedPattern, selectedShape, onSave, onClose]);
 
   const handleContentChange = useCallback((newContent: JSONContent) => {
     setContent(newContent);
@@ -242,6 +260,36 @@ export function FloatingNodeForm({
                 borderColor: '#d1d5db',
                 '&:hover': {
                   bgcolor: selectedPattern === preset.id ? '#4f46e5' : '#f3f4f6',
+                },
+              }}
+            />
+          ))}
+        </Box>
+      </Box>
+
+      {/* Shape Selection */}
+      <Box>
+        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+          Shape
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {SHAPE_PRESETS.map((preset) => (
+            <Chip
+              key={preset.id}
+              label={preset.label}
+              icon={<Iconify icon={preset.icon} width={16} />}
+              onClick={() => setSelectedShape(preset.id)}
+              variant={selectedShape === preset.id ? 'filled' : 'outlined'}
+              size="small"
+              sx={{
+                bgcolor: selectedShape === preset.id ? '#6366f1' : 'transparent',
+                color: selectedShape === preset.id ? 'white' : '#374151',
+                borderColor: '#d1d5db',
+                '& .MuiChip-icon': {
+                  color: selectedShape === preset.id ? 'white' : '#6b7280',
+                },
+                '&:hover': {
+                  bgcolor: selectedShape === preset.id ? '#4f46e5' : '#f3f4f6',
                 },
               }}
             />

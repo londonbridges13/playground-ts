@@ -31,14 +31,39 @@ import { FloatingNodeForm } from './components/floating-node-form';
 import { RecordingWaveform } from './components/recording-waveform';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { V3AppStoreDialog } from './components/v3-appstore-dialog';
-import { CircularNode, HexagonNode, RectangleNode } from './nodes';
+import { LoadInterfaceDialog } from './components/load-interface-dialog';
+import {
+  CircularNode,
+  HexagonNode,
+  RectangleNode,
+  DiamondNode,
+  OvalNode,
+  PillNode,
+  TriangleNode,
+  PentagonNode,
+  OctagonNode,
+  StarNode,
+  CloudNode,
+} from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
 import { useCenteredNodes, useAudioAnalyzer } from './hooks';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType, NodeFormData } from './types';
 
 // Node types - defined outside component, memoized
-const nodeTypes = { circular: CircularNode, hexagon: HexagonNode, rectangle: RectangleNode };
+const nodeTypes = {
+  circular: CircularNode,
+  hexagon: HexagonNode,
+  rectangle: RectangleNode,
+  diamond: DiamondNode,
+  oval: OvalNode,
+  pill: PillNode,
+  triangle: TriangleNode,
+  pentagon: PentagonNode,
+  octagon: OctagonNode,
+  star: StarNode,
+  cloud: CloudNode,
+};
 
 // Edge types - defined outside component, memoized
 const edgeTypes = {
@@ -1194,6 +1219,9 @@ function V3InterfaceViewInner({
   const [appStoreDialogOpen, setAppStoreDialogOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
+  // State for Load Interface dialog
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+
   // Handle node double-click to open App Store dialog
   const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
@@ -1408,10 +1436,10 @@ function V3InterfaceViewInner({
     // Convert screen center to flow position
     const flowPosition = screenToFlowPosition({ x: centerX, y: centerY });
 
-    // Create a new hex node matching the "Magic" template
+    // Create a new node with the selected shape
     const newNode: Node = {
-      id: `hex-${Date.now()}`,
-      type: 'hexagon',
+      id: `${formData.shape}-${Date.now()}`,
+      type: formData.shape,
       position: flowPosition,
       data: {
         label: formData.label,
@@ -1434,8 +1462,97 @@ function V3InterfaceViewInner({
     toast.success(`Node "${formData.label}" created!`);
   }, [nodes.length]);
 
+  // Handle blank canvas - clear all nodes and edges for a fresh start
+  const handleBlankCanvas = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setChatOpen(false);
+    setNodeFormOpen(false);
+    toast.success('Canvas cleared', {
+      description: 'Starting fresh with a blank canvas',
+    });
+  }, []);
+
   // Get ReactFlow instance for position calculations
   const reactFlowInstance = useReactFlow();
+
+  // Handle save interface - export nodes and edges as JSON to clipboard
+  const handleSaveInterface = useCallback(() => {
+    const interfaceData = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      viewport: reactFlowInstance.getViewport(),
+      nodes: nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: node.data,
+      })),
+      edges: edges.map((edge) => ({
+        id: edge.id,
+        type: edge.type,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+        data: edge.data,
+      })),
+    };
+
+    const jsonString = JSON.stringify(interfaceData, null, 2);
+
+    navigator.clipboard
+      .writeText(jsonString)
+      .then(() => {
+        toast.success('Interface saved', {
+          description: 'JSON copied to clipboard',
+        });
+      })
+      .catch(() => {
+        console.log('Interface JSON:', jsonString);
+        toast.info('Interface exported', {
+          description: 'Check console for JSON output',
+        });
+      });
+  }, [nodes, edges, reactFlowInstance]);
+
+  // Handle open load dialog
+  const handleOpenLoadDialog = useCallback(() => {
+    setLoadDialogOpen(true);
+  }, []);
+
+  // Handle load interface from JSON
+  const handleLoadInterface = useCallback(
+    (jsonString: string) => {
+      try {
+        const data = JSON.parse(jsonString);
+
+        // Load nodes
+        if (data.nodes && Array.isArray(data.nodes)) {
+          setNodes(data.nodes);
+        }
+
+        // Load edges
+        if (data.edges && Array.isArray(data.edges)) {
+          setEdges(data.edges);
+        }
+
+        // Optionally restore viewport
+        if (data.viewport) {
+          reactFlowInstance.setViewport(data.viewport);
+        }
+
+        toast.success('Interface loaded', {
+          description: `Loaded ${data.nodes?.length || 0} nodes and ${data.edges?.length || 0} edges`,
+        });
+      } catch (err) {
+        toast.error('Failed to load interface', {
+          description: err instanceof Error ? err.message : 'Invalid JSON',
+        });
+      }
+    },
+    [reactFlowInstance]
+  );
 
   // Handle when HyperText completes each step - advance to next step
   const handleHyperTextComplete = useCallback(() => {
@@ -1978,6 +2095,9 @@ function V3InterfaceViewInner({
           onSend={handleSendMessage}
           onMicClick={handleMicClick}
           onCreateNode={handleOpenNodeForm}
+          onBlankCanvas={handleBlankCanvas}
+          onSaveInterface={handleSaveInterface}
+          onLoadInterface={handleOpenLoadDialog}
           recordingStatus={recordingStatus}
         />
 
@@ -2011,6 +2131,13 @@ function V3InterfaceViewInner({
           setInitialChatMessage(`Tell me about "${node.data?.label || 'this node'}"`);
           setChatOpen(true);
         }}
+      />
+
+      {/* Load Interface Dialog */}
+      <LoadInterfaceDialog
+        open={loadDialogOpen}
+        onClose={() => setLoadDialogOpen(false)}
+        onLoad={handleLoadInterface}
       />
     </CanvasContainer>
   );

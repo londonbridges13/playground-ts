@@ -33,11 +33,14 @@ type FloatingTextInputProps = {
   onGoalSelect?: (goalId: string) => void;
   onMicClick?: () => void;
   onCreateNode?: () => void;
+  onBlankCanvas?: () => void;
+  onSaveInterface?: () => void;
+  onLoadInterface?: () => void;
   recordingStatus?: RecordingStatus;
   currentGoalId?: string;
 };
 
-export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNode, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
+export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNode, onBlankCanvas, onSaveInterface, onLoadInterface, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [goalMenuAnchor, setGoalMenuAnchor] = useState<null | HTMLElement>(null);
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
@@ -169,6 +172,21 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNo
   const handleCreateNodeClick = () => {
     handleMoreMenuClose();
     onCreateNode?.();
+  };
+
+  const handleBlankCanvasClick = () => {
+    handleMoreMenuClose();
+    onBlankCanvas?.();
+  };
+
+  const handleSaveInterfaceClick = () => {
+    handleMoreMenuClose();
+    onSaveInterface?.();
+  };
+
+  const handleLoadInterfaceClick = () => {
+    handleMoreMenuClose();
+    onLoadInterface?.();
   };
 
   return (
@@ -384,6 +402,24 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNo
                 <Iconify icon="solar:add-circle-bold" width={20} />
               </ListItemIcon>
               <ListItemText primary="Create Node v1" />
+            </MenuItem>
+            <MenuItem onClick={handleBlankCanvasClick}>
+              <ListItemIcon>
+                <Iconify icon="solar:restart-bold" width={20} />
+              </ListItemIcon>
+              <ListItemText primary="Blank Canvas" />
+            </MenuItem>
+            <MenuItem onClick={handleSaveInterfaceClick}>
+              <ListItemIcon>
+                <Iconify icon="solar:diskette-bold" width={20} />
+              </ListItemIcon>
+              <ListItemText primary="Save Interface" />
+            </MenuItem>
+            <MenuItem onClick={handleLoadInterfaceClick}>
+              <ListItemIcon>
+                <Iconify icon="solar:upload-bold" width={20} />
+              </ListItemIcon>
+              <ListItemText primary="Load Interface" />
             </MenuItem>
           </Menu>
         </Box>

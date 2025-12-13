@@ -1,4 +1,11 @@
 export { CircularNode } from './circular-node';
 export { HexagonNode } from './hexagon-node';
 export { RectangleNode } from './rectangle-node';
-
+export { DiamondNode } from './diamond-node';
+export { OvalNode } from './oval-node';
+export { PillNode } from './pill-node';
+export { TriangleNode } from './triangle-node';
+export { PentagonNode } from './pentagon-node';
+export { OctagonNode } from './octagon-node';
+export { StarNode } from './star-node';
+export { CloudNode } from './cloud-node';

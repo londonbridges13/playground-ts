@@ -232,6 +232,23 @@ export interface MentionTabsMenuProps {
 }
 
 // ----------------------------------------------------------------------
+// Node Shape Types
+// ----------------------------------------------------------------------
+
+export type NodeShape =
+  | 'circular'
+  | 'hexagon'
+  | 'rectangle'
+  | 'diamond'
+  | 'oval'
+  | 'pill'
+  | 'triangle'
+  | 'pentagon'
+  | 'octagon'
+  | 'star'
+  | 'cloud';
+
+// ----------------------------------------------------------------------
 // Floating Node Form Types
 // ----------------------------------------------------------------------
 
@@ -240,6 +257,7 @@ export interface NodeFormData {
   content: any | null; // JSONContent from Novel/Tiptap
   backgroundImage: string | null;
   patternOverlay?: string | null;
+  shape: NodeShape;
 }
 
 export interface FloatingNodeFormProps {

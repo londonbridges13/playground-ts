@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useConnection, useNodeId } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
 
@@ -118,6 +118,11 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
   // Hover state for showing handles
   const [isHovered, setIsHovered] = useState(false);
 
+  // Connection target detection for visual feedback
+  const connection = useConnection();
+  const nodeId = useNodeId();
+  const isConnectionTarget = connection.inProgress && connection.toNode?.id === nodeId;
+
   useLayoutEffect(() => {
     if (chipRef.current && patternOverlay) {
       const rect = chipRef.current.getBoundingClientRect();
@@ -155,7 +160,18 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
               rotate: exitAnimations[exitAnimationType].rotate,
               opacity: 0,
             }
-          : { scale: 1, x: 0, rotate: 0 }
+          : {
+              scale: isConnectionTarget ? 1.10 : 1,
+              x: 0,
+              rotate: 0,
+              boxShadow: isConnectionTarget
+                ? [
+                    '0 0 0 3px rgba(158, 122, 255, 0.6)',
+                    '0 0 0 8px rgba(158, 122, 255, 0.3)',
+                    '0 0 0 3px rgba(158, 122, 255, 0.6)',
+                  ]
+                : '0 0 0 0px rgba(158, 122, 255, 0)',
+            }
       }
       transition={{
         duration: isExiting && exitAnimationType === 'shuffle' ? 0.7 : 0.5,
@@ -163,8 +179,12 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
         ease: isExiting && exitAnimationType === 'shuffle'
           ? [0.6, 0.01, 0.05, 0.95]
           : [0.43, 0.13, 0.23, 0.96],
+        scale: { type: 'spring', stiffness: 300, damping: 20 },
+        boxShadow: isConnectionTarget
+          ? { repeat: Infinity, duration: 1.3, ease: 'easeInOut' }
+          : { duration: 0.2 },
       }}
-      style={{ width: '100%', height: '100%' }}
+      style={{ width: '100%', height: '100%', borderRadius: `${borderRadius}px` }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -347,25 +367,6 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
           </Typography>
         )}
 
-        {/* Invisible center handle - covers entire node for easy drop target */}
-        <Handle
-          type="target"
-          position={Position.Top}
-          id="center"
-          isConnectable={isConnectable}
-          style={{
-            width,
-            height,
-            background: 'transparent',
-            border: 'none',
-            borderRadius,
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            opacity: 0,
-            pointerEvents: 'all',
-          }}
-        />
         {/* Connection Handles - visible on hover */}
         <Handle
           type="target"
