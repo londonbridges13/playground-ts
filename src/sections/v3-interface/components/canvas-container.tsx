@@ -18,8 +18,6 @@ export const CanvasContainer = forwardRef<HTMLDivElement, CanvasContainerProps>(
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        cursor: 'none',
-        '& *': { cursor: 'none !important' },
       }}
     >
       {children}

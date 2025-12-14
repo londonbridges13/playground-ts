@@ -185,6 +185,7 @@ export function FloatingNodeForm({
         <TextField
           fullWidth
           size="small"
+          autoFocus
           placeholder="Enter node label..."
           value={label}
           onChange={(e) => setLabel(e.target.value)}

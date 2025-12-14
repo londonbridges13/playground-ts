@@ -6,8 +6,6 @@ import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import Typography from '@mui/material/Typography';
 
 import { MagicHexBorder } from '../components/magic-border';
 
@@ -319,6 +317,10 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   const chipRef = useRef<HTMLDivElement>(null);
   const [chipSize, setChipSize] = useState({ width: 80, height: 32 });
 
+  // Label ref for auto font scaling
+  const labelRef = useRef<HTMLDivElement>(null);
+  const [autoFontSize, setAutoFontSize] = useState(0.875); // rem
+
   // Hover state for showing handles
   const [isHovered, setIsHovered] = useState(false);
 
@@ -337,6 +339,65 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
       setChipSize({ width: rect.width, height: rect.height });
     }
   }, [data.label, patternOverlay]);
+
+  // Auto font scaling to prevent orphaned characters
+  useLayoutEffect(() => {
+    const element = labelRef.current;
+    if (!element) return;
+
+    const label = data.label as string;
+    if (!label) return;
+
+    // Reset to base size first
+    element.style.fontSize = '0.875rem';
+
+    // Try font sizes from 0.875rem down to 0.7rem (about 20% reduction)
+    const minSize = 0.7;
+    const maxSize = 0.875;
+    const step = 0.025;
+
+    for (let size = maxSize; size >= minSize; size -= step) {
+      element.style.fontSize = `${size}rem`;
+
+      // Get the text content and check for orphans
+      const text = element.innerText || label;
+      const words = text.split(/\s+/);
+
+      // If only one word, no orphan issue possible
+      if (words.length <= 1) {
+        setAutoFontSize(size);
+        break;
+      }
+
+      // Use getClientRects to detect line breaks
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const rects = Array.from(range.getClientRects());
+
+      if (rects.length <= 1) {
+        // All text fits on one line - perfect
+        setAutoFontSize(size);
+        break;
+      }
+
+      // Check if last line has orphaned characters (very short last line)
+      const lastRect = rects[rects.length - 1];
+      const prevRect = rects[rects.length - 2];
+
+      // If last line is less than 20% of previous line width, it's likely an orphan
+      if (lastRect && prevRect && lastRect.width < prevRect.width * 0.2) {
+        // Continue reducing font size
+        if (size <= minSize) {
+          setAutoFontSize(minSize);
+        }
+        continue;
+      }
+
+      // No orphan detected at this size
+      setAutoFontSize(size);
+      break;
+    }
+  }, [data.label]);
 
   // Calculate fade mask radii based on chip size (with padding for smooth fade)
   const fadePadding = 30; // Extra padding around chip for fade effect
@@ -663,33 +724,56 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
 
         {/* Content */}
         {patternOverlay ? (
-          <Chip
-            ref={chipRef}
-            label={data.label as string}
+          <Box
+            ref={(el: HTMLDivElement | null) => {
+              // Assign to both refs
+              (chipRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+              (labelRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+            }}
             sx={{
               position: 'relative',
               zIndex: 3,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
               fontWeight: 600,
               backgroundColor: 'transparent',
               color: textColor,
-              fontSize: '0.875rem',
+              fontSize: `${autoFontSize}rem`,
               textShadow: '0 1px 2px rgba(0,0,0,0.1)',
-            }}
-          />
-        ) : (
-          <Typography
-            variant="body2"
-            sx={{
-              position: 'relative',
-              zIndex: 3,
               textAlign: 'center',
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
               px: 2,
-              fontWeight: 500,
-              color: textColor,
             }}
           >
             {data.label as string}
-          </Typography>
+          </Box>
+        ) : (
+          <Box
+            ref={labelRef}
+            component="div"
+            sx={{
+              position: 'relative',
+              zIndex: 3,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              px: 4,
+              fontWeight: 500,
+              color: textColor,
+              fontSize: `${autoFontSize}rem`,
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+            }}
+          >
+            {data.label as string}
+          </Box>
         )}
 
         {/* Connection Handles - visible on hover */}

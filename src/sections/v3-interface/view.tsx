@@ -1748,7 +1748,7 @@ function V3InterfaceViewInner({
 
   return (
     <CanvasContainer ref={containerRef}>
-      <SmoothCursor />
+      {/* <SmoothCursor /> */}
       <ReactFlow
         nodes={nodes}
         edges={edges}
