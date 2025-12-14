@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { m, AnimatePresence, useMotionValue } from 'framer-motion';
-import type { Node } from '@xyflow/react';
+import type { Node, Edge } from '@xyflow/react';
 import type { JSONContent } from 'novel';
 
 import Box from '@mui/material/Box';
@@ -13,12 +13,14 @@ import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Slider from '@mui/material/Slider';
 
 import { Iconify } from 'src/components/iconify';
 
 import { DialogBackgroundRenderer } from './dialog-background-renderer';
 import { NovelEditor } from './novel-editor';
 import type { NodeFormData, NodeShape } from '../types';
+import type { SmartPulseButtonEdgeData } from '../edges';
 
 // ----------------------------------------------------------------------
 
@@ -80,15 +82,36 @@ function findPatternPresetId(patternPath: string | null | undefined): string {
   return preset?.id || 'none';
 }
 
+// Edge data update type
+export interface EdgeDataUpdate {
+  strokeColor?: string;
+  strokeWidth?: number;
+  buttonBgColor?: string;
+}
+
 interface V3AppStoreDialogProps {
   open: boolean;
   node: Node | null;
+  edges?: Edge[];
+  allNodes?: Node[];
   onClose: () => void;
   onStartChat?: (node: Node) => void;
   onSaveNode?: (nodeId: string, data: NodeFormData) => Node | void;
+  onUpdateEdge?: (edgeId: string, data: EdgeDataUpdate) => void;
+  onDeleteEdge?: (edgeId: string) => void;
 }
 
-export function V3AppStoreDialog({ open, node, onClose, onStartChat, onSaveNode }: V3AppStoreDialogProps) {
+export function V3AppStoreDialog({
+  open,
+  node,
+  edges = [],
+  allNodes = [],
+  onClose,
+  onStartChat,
+  onSaveNode,
+  onUpdateEdge,
+  onDeleteEdge,
+}: V3AppStoreDialogProps) {
   const y = useMotionValue(0);
   const zIndex = useMotionValue(open ? 2 : 0);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -164,7 +187,22 @@ export function V3AppStoreDialog({ open, node, onClose, onStartChat, onSaveNode 
       backgroundImage: bgPreset?.image || null,
       patternOverlay: patternPreset?.pattern || null,
     };
-  }, [node, isEditing, selectedBackground, selectedPattern]);
+  }, [localNode, isEditing, selectedBackground, selectedPattern]);
+
+  // Get edges connected to this node
+  const connectedEdges = useMemo(() => {
+    if (!localNode) return [];
+    return edges.filter((edge) => edge.source === localNode.id || edge.target === localNode.id);
+  }, [edges, localNode]);
+
+  // Helper to get node label by ID
+  const getNodeLabel = useCallback(
+    (nodeId: string): string => {
+      const foundNode = allNodes.find((n) => n.id === nodeId);
+      return (foundNode?.data?.label as string) || nodeId;
+    },
+    [allNodes]
+  );
 
   // Lock body scroll when dialog is open
   useEffect(() => {
@@ -551,23 +589,43 @@ export function V3AppStoreDialog({ open, node, onClose, onStartChat, onSaveNode 
                         >
                           Background
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                           {BACKGROUND_PRESETS.map((preset) => (
-                            <Chip
-                              key={preset.id}
-                              label={preset.label}
-                              onClick={() => setSelectedBackground(preset.id)}
-                              variant={selectedBackground === preset.id ? 'filled' : 'outlined'}
-                              size="small"
-                              sx={{
-                                bgcolor: selectedBackground === preset.id ? 'rgba(99, 102, 241, 0.9)' : 'transparent',
-                                color: selectedBackground === preset.id ? 'white' : 'rgba(255, 255, 255, 0.7)',
-                                borderColor: 'rgba(255, 255, 255, 0.3)',
-                                '&:hover': {
-                                  bgcolor: selectedBackground === preset.id ? 'rgba(99, 102, 241, 1)' : 'rgba(255, 255, 255, 0.1)',
-                                },
-                              }}
-                            />
+                            <Tooltip key={preset.id} title={preset.label} arrow>
+                              <Box
+                                onClick={() => setSelectedBackground(preset.id)}
+                                sx={{
+                                  width: 48,
+                                  height: 48,
+                                  borderRadius: 1.5,
+                                  cursor: 'pointer',
+                                  backgroundImage: preset.image ? `url(${preset.image})` : 'none',
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                  bgcolor: preset.image ? 'transparent' : 'rgba(255, 255, 255, 0.1)',
+                                  border: selectedBackground === preset.id
+                                    ? '2px solid rgba(99, 102, 241, 1)'
+                                    : '2px solid rgba(255, 255, 255, 0.2)',
+                                  boxShadow: selectedBackground === preset.id
+                                    ? '0 0 0 2px rgba(99, 102, 241, 0.3)'
+                                    : 'none',
+                                  transition: 'all 0.2s ease',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  '&:hover': {
+                                    borderColor: 'rgba(99, 102, 241, 0.8)',
+                                    transform: 'scale(1.05)',
+                                  },
+                                }}
+                              >
+                                {!preset.image && (
+                                  <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.6rem' }}>
+                                    None
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Tooltip>
                           ))}
                         </Box>
                       </Box>
@@ -645,6 +703,141 @@ export function V3AppStoreDialog({ open, node, onClose, onStartChat, onSaveNode 
                           ))}
                         </Box>
                       </Box>
+
+                      {/* Connections Section */}
+                      {connectedEdges.length > 0 && (
+                        <Box sx={{ mb: 3 }}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{
+                              color: 'rgba(255, 255, 255, 0.5)',
+                              mb: 1.5,
+                              textTransform: 'uppercase',
+                              letterSpacing: 1,
+                              fontSize: '0.7rem',
+                            }}
+                          >
+                            Connections ({connectedEdges.length})
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {connectedEdges.map((edge) => {
+                              const edgeData = (edge.data || {}) as SmartPulseButtonEdgeData;
+                              const isOutgoing = edge.source === localNode?.id;
+                              const connectedNodeId = isOutgoing ? edge.target : edge.source;
+                              const connectedNodeLabel = getNodeLabel(connectedNodeId);
+
+                              return (
+                                <Box
+                                  key={edge.id}
+                                  sx={{
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                  }}
+                                >
+                                  {/* Connection Header */}
+                                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Iconify
+                                        icon={(isOutgoing ? 'solar:arrow-right-bold' : 'solar:arrow-left-bold') as any}
+                                        width={16}
+                                        sx={{ color: edgeData.strokeColor || 'rgba(158, 122, 255, 0.8)' }}
+                                      />
+                                      <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                                        {isOutgoing ? 'To: ' : 'From: '}
+                                        <strong>{connectedNodeLabel}</strong>
+                                      </Typography>
+                                    </Box>
+                                    {onDeleteEdge && (
+                                      <Tooltip title="Delete connection">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => onDeleteEdge(edge.id)}
+                                          sx={{
+                                            color: 'rgba(255, 255, 255, 0.5)',
+                                            '&:hover': { color: '#ef4444', bgcolor: 'rgba(239, 68, 68, 0.1)' },
+                                          }}
+                                        >
+                                          <Iconify icon="solar:trash-bin-trash-bold" width={16} />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                  </Box>
+
+                                  {/* Edge Properties */}
+                                  {onUpdateEdge && (
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                      {/* Stroke Color */}
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', minWidth: 80 }}>
+                                          Line Color
+                                        </Typography>
+                                        <input
+                                          type="color"
+                                          value={edgeData.strokeColor || '#9e7aff'}
+                                          onChange={(e) => onUpdateEdge(edge.id, { strokeColor: e.target.value })}
+                                          style={{
+                                            width: 32,
+                                            height: 24,
+                                            border: 'none',
+                                            borderRadius: 4,
+                                            cursor: 'pointer',
+                                            backgroundColor: 'transparent',
+                                          }}
+                                        />
+                                      </Box>
+
+                                      {/* Stroke Width */}
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', minWidth: 80 }}>
+                                          Line Width
+                                        </Typography>
+                                        <Slider
+                                          size="small"
+                                          value={edgeData.strokeWidth || 2.5}
+                                          min={1}
+                                          max={6}
+                                          step={0.5}
+                                          onChange={(_, value) => onUpdateEdge(edge.id, { strokeWidth: value as number })}
+                                          sx={{
+                                            flex: 1,
+                                            color: 'rgba(99, 102, 241, 0.9)',
+                                            '& .MuiSlider-thumb': { width: 14, height: 14 },
+                                          }}
+                                        />
+                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', minWidth: 24 }}>
+                                          {edgeData.strokeWidth || 2.5}
+                                        </Typography>
+                                      </Box>
+
+                                      {/* Button Background Color */}
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', minWidth: 80 }}>
+                                          Button Color
+                                        </Typography>
+                                        <input
+                                          type="color"
+                                          value={edgeData.buttonBgColor?.replace(/rgba?\([^)]+\)/, '#9e7aff') || '#9e7aff'}
+                                          onChange={(e) => onUpdateEdge(edge.id, { buttonBgColor: e.target.value })}
+                                          style={{
+                                            width: 32,
+                                            height: 24,
+                                            border: 'none',
+                                            borderRadius: 4,
+                                            cursor: 'pointer',
+                                            backgroundColor: 'transparent',
+                                          }}
+                                        />
+                                      </Box>
+                                    </Box>
+                                  )}
+                                </Box>
+                              );
+                            })}
+                          </Box>
+                        </Box>
+                      )}
 
                       {/* Save/Cancel Buttons */}
                       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', mt: 3, pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>

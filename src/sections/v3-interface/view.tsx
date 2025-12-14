@@ -1432,6 +1432,29 @@ function V3InterfaceViewInner({
     };
   }, []);
 
+  // Handle updating edge data from App Store dialog
+  const handleUpdateEdge = useCallback((edgeId: string, data: { strokeColor?: string; strokeWidth?: number; buttonBgColor?: string }) => {
+    setEdges((currentEdges) =>
+      currentEdges.map((edge) =>
+        edge.id === edgeId
+          ? {
+              ...edge,
+              data: {
+                ...edge.data,
+                ...data,
+              },
+            }
+          : edge
+      )
+    );
+  }, []);
+
+  // Handle deleting edge from App Store dialog
+  const handleDeleteEdge = useCallback((edgeId: string) => {
+    setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== edgeId));
+    toast.success('Connection deleted');
+  }, []);
+
   // Keyboard shortcut to open node form (press 'n' key)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -2289,6 +2312,8 @@ function V3InterfaceViewInner({
       <V3AppStoreDialog
         open={appStoreDialogOpen}
         node={selectedNode}
+        edges={edges}
+        allNodes={nodes}
         onClose={() => setAppStoreDialogOpen(false)}
         onStartChat={(node) => {
           setAppStoreDialogOpen(false);
@@ -2296,6 +2321,8 @@ function V3InterfaceViewInner({
           setChatOpen(true);
         }}
         onSaveNode={handleSaveNodeFromDialog}
+        onUpdateEdge={handleUpdateEdge}
+        onDeleteEdge={handleDeleteEdge}
       />
 
       {/* Load Interface Dialog */}
