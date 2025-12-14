@@ -36,11 +36,12 @@ type FloatingTextInputProps = {
   onBlankCanvas?: () => void;
   onSaveInterface?: () => void;
   onLoadInterface?: () => void;
+  onLoadModeActivated?: () => void;
   recordingStatus?: RecordingStatus;
   currentGoalId?: string;
 };
 
-export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNode, onBlankCanvas, onSaveInterface, onLoadInterface, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
+export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNode, onBlankCanvas, onSaveInterface, onLoadInterface, onLoadModeActivated, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [goalMenuAnchor, setGoalMenuAnchor] = useState<null | HTMLElement>(null);
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
@@ -49,6 +50,14 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNo
   const [showShine, setShowShine] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const goalMenuOpen = Boolean(goalMenuAnchor);
+
+  // Detect "l/ " command for load interface mode
+  useEffect(() => {
+    if (inputValue.toLowerCase() === 'l/ ') {
+      setInputValue(''); // Clear the input
+      onLoadModeActivated?.(); // Notify parent to show label and enable load mode
+    }
+  }, [inputValue, onLoadModeActivated]);
 
   // Detect "g/" command
   useEffect(() => {
@@ -197,13 +206,13 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNo
         width: '100%',
         bgcolor: '#fafafa',
         borderRadius: '24px',
-        p: 2,
-        cursor: 'text',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06)',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Shine effect overlay */}
+          p: 2,
+          cursor: 'text',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Shine effect overlay */}
       <m.div
         initial={{ x: '-100%' }}
         animate={showShine ? { x: '200%' } : { x: '-100%' }}

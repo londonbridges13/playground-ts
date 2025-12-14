@@ -1168,7 +1168,8 @@ function V3InterfaceViewInner({
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
   const memoizedEdgeTypes = useMemo(() => edgeTypes, []);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { getViewport } = useReactFlow();
+  const reactFlowInstance = useReactFlow();
+  const { getViewport } = reactFlowInstance;
 
   // Update nodes when baseCenteredNodes changes
   useEffect(() => {
@@ -1246,6 +1247,9 @@ function V3InterfaceViewInner({
 
   // State for floating node form
   const [nodeFormOpen, setNodeFormOpen] = useState(false);
+  const [nodeFormMode, setNodeFormMode] = useState<'create' | 'edit'>('create');
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [editingNodeData, setEditingNodeData] = useState<Partial<NodeFormData> | null>(null);
 
   // State for recording status: 'idle' | 'recording' | 'paused' | 'fading'
   const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'paused' | 'fading'>('idle');
@@ -1257,6 +1261,11 @@ function V3InterfaceViewInner({
   const [triggerPausedFade, setTriggerPausedFade] = useState(false);
   // Ref for paused timeout
   const pausedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // State for load interface mode (activated by "l/ " command)
+  const [loadModeActive, setLoadModeActive] = useState(false);
+  // Ref for load mode timeout
+  const loadModeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Audio analyzer for voice-reactive waveform
   const { audioLevels, start: startAudioAnalyzer, stop: stopAudioAnalyzer } = useAudioAnalyzer({
@@ -1346,62 +1355,81 @@ function V3InterfaceViewInner({
   // Time between each step in milliseconds
   const STEP_DURATION = 150;
 
-  // Handle sending a message - triggers shine effect on all nodes and opens chat view
-  const handleSendMessage = useCallback((message: string) => {
-    // Open the floating chat view with the initial message
-    setInitialChatMessage(message);
-    setChatOpen(true);
-
-    // Reset states for new message
-    setTriggerDoneDelete(false);
-    setStatusText('Researching ...');
-    transitionStepRef.current = 0;
-
-    // Immediately show "Working..." label
-    setStatus('working');
-
-    // Trigger shine on all nodes
-    setNodes(currentNodes =>
-      currentNodes.map(n => ({
-        ...n,
-        data: { ...n.data, shine: true },
-      }))
-    );
-
-    // Reset shine after animation completes
-    setTimeout(() => {
-      setNodes(currentNodes =>
-        currentNodes.map(n => ({
-          ...n,
-          data: { ...n.data, shine: false },
-        }))
-      );
-    }, 1000);
-
-    // Delay toast by 1.5 seconds, then start transition sequence
-    setTimeout(() => {
-      toast.info('Message sent', { description: message });
-      setStatus('transitioning');
-      // Start stepping through intermediate texts
-      transitionStepRef.current = 1;
-      setStatusText(TRANSITION_STEPS[1]);
-    }, 1500);
-  }, [TRANSITION_STEPS]);
-
   // Handle closing the chat view
   const handleChatClose = useCallback(() => {
     setChatOpen(false);
     setInitialChatMessage(null);
   }, []);
 
-  // Handle opening the node form
+  // Handle opening the node form (create mode)
   const handleOpenNodeForm = useCallback(() => {
+    setNodeFormMode('create');
+    setEditingNodeId(null);
+    setEditingNodeData(null);
     setNodeFormOpen(true);
   }, []);
 
   // Handle closing the node form
   const handleCloseNodeForm = useCallback(() => {
     setNodeFormOpen(false);
+    setNodeFormMode('create');
+    setEditingNodeId(null);
+    setEditingNodeData(null);
+  }, []);
+
+  // Handle opening the node form in edit mode (for FloatingNodeForm)
+  const handleEditNode = useCallback((node: Node) => {
+    setNodeFormMode('edit');
+    setEditingNodeId(node.id);
+    setEditingNodeData({
+      label: (node.data?.label as string) || '',
+      content: node.data?.content || null,
+      backgroundImage: (node.data?.backgroundImage as string) || null,
+      patternOverlay: (node.data?.patternOverlay as string) || null,
+      shape: (node.type as NodeFormData['shape']) || 'hexagon',
+    });
+    setNodeFormOpen(true);
+  }, []);
+
+  // Handle saving node from App Store dialog (in-place editing)
+  // Returns the updated node so the dialog can update its local state
+  const handleSaveNodeFromDialog = useCallback((nodeId: string, formData: NodeFormData): Node => {
+    let updatedNode: Node | null = null;
+
+    setNodes((currentNodes) =>
+      currentNodes.map((n) => {
+        if (n.id === nodeId) {
+          updatedNode = {
+            ...n,
+            type: formData.shape,
+            data: {
+              ...n.data,
+              label: formData.label,
+              content: formData.content,
+              backgroundImage: formData.backgroundImage || n.data?.backgroundImage || '/magic-mg1.png',
+              patternOverlay: formData.patternOverlay ?? n.data?.patternOverlay ?? null,
+            },
+          };
+          return updatedNode;
+        }
+        return n;
+      })
+    );
+
+    toast.success(`Node "${formData.label}" updated!`);
+
+    // Return the updated node (or create one if somehow not found)
+    return updatedNode || {
+      id: nodeId,
+      type: formData.shape,
+      position: { x: 0, y: 0 },
+      data: {
+        label: formData.label,
+        content: formData.content,
+        backgroundImage: formData.backgroundImage || '/magic-mg1.png',
+        patternOverlay: formData.patternOverlay ?? null,
+      },
+    };
   }, []);
 
   // Keyboard shortcut to open node form (press 'n' key)
@@ -1424,12 +1452,35 @@ function V3InterfaceViewInner({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Handle creating a new node from the form
-  const handleCreateNode = useCallback((formData: NodeFormData) => {
-    const { screenToFlowPosition, getViewport } = reactFlowInstance;
+  // Handle creating or editing a node from the form
+  const handleCreateNode = useCallback((formData: NodeFormData, nodeId?: string) => {
+    // If nodeId is provided, we're editing an existing node
+    if (nodeId) {
+      setNodes((currentNodes) =>
+        currentNodes.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                type: formData.shape, // Allow changing shape
+                data: {
+                  ...n.data,
+                  label: formData.label,
+                  content: formData.content,
+                  backgroundImage: formData.backgroundImage || n.data?.backgroundImage || '/magic-mg1.png',
+                  patternOverlay: formData.patternOverlay ?? n.data?.patternOverlay ?? null,
+                },
+              }
+            : n
+        )
+      );
+      toast.success(`Node "${formData.label}" updated!`);
+      return;
+    }
+
+    // Creating a new node
+    const { screenToFlowPosition } = reactFlowInstance;
 
     // Get the center of the current viewport
-    const viewport = getViewport();
     const centerX = window.innerWidth / 2;
     const centerY = window.innerHeight / 2;
 
@@ -1460,7 +1511,7 @@ function V3InterfaceViewInner({
 
     setNodes((currentNodes) => [...currentNodes, newNode]);
     toast.success(`Node "${formData.label}" created!`);
-  }, [nodes.length]);
+  }, [nodes.length, reactFlowInstance]);
 
   // Handle blank canvas - clear all nodes and edges for a fresh start
   const handleBlankCanvas = useCallback(() => {
@@ -1472,9 +1523,6 @@ function V3InterfaceViewInner({
       description: 'Starting fresh with a blank canvas',
     });
   }, []);
-
-  // Get ReactFlow instance for position calculations
-  const reactFlowInstance = useReactFlow();
 
   // Handle save interface - export nodes and edges as JSON to clipboard
   const handleSaveInterface = useCallback(() => {
@@ -1521,6 +1569,22 @@ function V3InterfaceViewInner({
     setLoadDialogOpen(true);
   }, []);
 
+  // Handle load mode activation (when user types "l/ ")
+  const handleLoadModeActivated = useCallback(() => {
+    // Clear any existing timeout
+    if (loadModeTimeoutRef.current) {
+      clearTimeout(loadModeTimeoutRef.current);
+      loadModeTimeoutRef.current = null;
+    }
+
+    setLoadModeActive(true);
+
+    // Auto-hide after 15 seconds if user doesn't paste
+    loadModeTimeoutRef.current = setTimeout(() => {
+      setLoadModeActive(false);
+    }, 15000);
+  }, []);
+
   // Handle load interface from JSON
   const handleLoadInterface = useCallback(
     (jsonString: string) => {
@@ -1542,6 +1606,13 @@ function V3InterfaceViewInner({
           reactFlowInstance.setViewport(data.viewport);
         }
 
+        // Deactivate load mode
+        setLoadModeActive(false);
+        if (loadModeTimeoutRef.current) {
+          clearTimeout(loadModeTimeoutRef.current);
+          loadModeTimeoutRef.current = null;
+        }
+
         toast.success('Interface loaded', {
           description: `Loaded ${data.nodes?.length || 0} nodes and ${data.edges?.length || 0} edges`,
         });
@@ -1553,6 +1624,66 @@ function V3InterfaceViewInner({
     },
     [reactFlowInstance]
   );
+
+  // Handle sending a message - triggers shine effect on all nodes and opens chat view
+  // Also handles JSON paste when in load mode
+  const handleSendMessage = useCallback((message: string) => {
+    const trimmed = message.trim();
+
+    // Check if it looks like JSON (for load mode or auto-detect)
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        // Check if it has nodes array (interface JSON structure)
+        if (parsed.nodes && Array.isArray(parsed.nodes)) {
+          handleLoadInterface(trimmed);
+          return; // Don't proceed with normal message handling
+        }
+      } catch {
+        // Not valid JSON, continue as normal message
+      }
+    }
+
+    // Normal message handling
+    // Open the floating chat view with the initial message
+    setInitialChatMessage(message);
+    setChatOpen(true);
+
+    // Reset states for new message
+    setTriggerDoneDelete(false);
+    setStatusText('Researching ...');
+    transitionStepRef.current = 0;
+
+    // Immediately show "Working..." label
+    setStatus('working');
+
+    // Trigger shine on all nodes
+    setNodes(currentNodes =>
+      currentNodes.map(n => ({
+        ...n,
+        data: { ...n.data, shine: true },
+      }))
+    );
+
+    // Reset shine after animation completes
+    setTimeout(() => {
+      setNodes(currentNodes =>
+        currentNodes.map(n => ({
+          ...n,
+          data: { ...n.data, shine: false },
+        }))
+      );
+    }, 1000);
+
+    // Delay toast by 1.5 seconds, then start transition sequence
+    setTimeout(() => {
+      toast.info('Message sent', { description: message });
+      setStatus('transitioning');
+      // Start stepping through intermediate texts
+      transitionStepRef.current = 1;
+      setStatusText(TRANSITION_STEPS[1]);
+    }, 1500);
+  }, [TRANSITION_STEPS, handleLoadInterface]);
 
   // Handle when HyperText completes each step - advance to next step
   const handleHyperTextComplete = useCallback(() => {
@@ -2091,6 +2222,35 @@ function V3InterfaceViewInner({
           </Box>
         )}
 
+        {/* Load Mode Label - above input */}
+        {loadModeActive && (
+          <Box sx={{ position: 'relative', width: '100%', mb: 1.5, ml: 1, pr: 1 }}>
+            <BlurReveal duration={600} blur={8}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    bgcolor: 'rgb(140, 84, 241)',
+                  }}
+                />
+                <Box
+                  component="span"
+                  sx={{
+                    fontFamily: '"JetBrains Mono", monospace',
+                    fontSize: '0.9375rem',
+                    color: '#6b7280',
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  Load Interface Activated...
+                </Box>
+              </Box>
+            </BlurReveal>
+          </Box>
+        )}
+
         <FloatingTextInput
           onSend={handleSendMessage}
           onMicClick={handleMicClick}
@@ -2098,6 +2258,7 @@ function V3InterfaceViewInner({
           onBlankCanvas={handleBlankCanvas}
           onSaveInterface={handleSaveInterface}
           onLoadInterface={handleOpenLoadDialog}
+          onLoadModeActivated={handleLoadModeActivated}
           recordingStatus={recordingStatus}
         />
 
@@ -2115,6 +2276,9 @@ function V3InterfaceViewInner({
           open={nodeFormOpen}
           onClose={handleCloseNodeForm}
           onSave={handleCreateNode}
+          mode={nodeFormMode}
+          editNodeId={editingNodeId || undefined}
+          initialData={editingNodeData || undefined}
         />
       </Box>
 
@@ -2131,6 +2295,7 @@ function V3InterfaceViewInner({
           setInitialChatMessage(`Tell me about "${node.data?.label || 'this node'}"`);
           setChatOpen(true);
         }}
+        onSaveNode={handleSaveNodeFromDialog}
       />
 
       {/* Load Interface Dialog */}

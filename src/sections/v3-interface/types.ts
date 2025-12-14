@@ -263,6 +263,10 @@ export interface NodeFormData {
 export interface FloatingNodeFormProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: NodeFormData) => void;
+  onSave: (data: NodeFormData, nodeId?: string) => void;
+  // Edit mode props
+  mode?: 'create' | 'edit';
+  editNodeId?: string;
+  initialData?: Partial<NodeFormData>;
 }
 

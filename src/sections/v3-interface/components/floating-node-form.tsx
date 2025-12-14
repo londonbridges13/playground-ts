@@ -70,15 +70,36 @@ const SHAPE_PRESETS: { id: NodeShape; label: string; icon: string }[] = [
 
 // ----------------------------------------------------------------------
 
+// Helper to find background preset ID from image path
+function findBackgroundPresetId(imagePath: string | null | undefined): string {
+  if (!imagePath) return 'none';
+  const preset = BACKGROUND_PRESETS.find((p) => p.image === imagePath);
+  return preset?.id || BACKGROUND_PRESETS[0].id;
+}
+
+// Helper to find pattern preset ID from pattern path
+function findPatternPresetId(patternPath: string | null | undefined): string {
+  if (!patternPath) return 'none';
+  const preset = PATTERN_PRESETS.find((p) => p.pattern === patternPath);
+  return preset?.id || 'none';
+}
+
+// ----------------------------------------------------------------------
+
 export function FloatingNodeForm({
   open,
   onClose,
   onSave,
+  mode = 'create',
+  editNodeId,
+  initialData,
 }: FloatingNodeFormProps) {
   const [position, setPosition] = useState(DEFAULT_POSITION);
   const [size, setSize] = useState(DEFAULT_SIZE);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const isEditMode = mode === 'edit';
 
   // Form state
   const [label, setLabel] = useState('');
@@ -104,6 +125,17 @@ export function FloatingNodeForm({
     }
   }, [open]);
 
+  // Initialize form with initial data when opening in edit mode
+  useEffect(() => {
+    if (open && isEditMode && initialData) {
+      setLabel(initialData.label || '');
+      setContent(initialData.content || null);
+      setSelectedBackground(findBackgroundPresetId(initialData.backgroundImage));
+      setSelectedPattern(findPatternPresetId(initialData.patternOverlay));
+      setSelectedShape(initialData.shape || SHAPE_PRESETS[0].id);
+    }
+  }, [open, isEditMode, initialData]);
+
   // Reset form when closing
   useEffect(() => {
     if (!open) {
@@ -127,9 +159,9 @@ export function FloatingNodeForm({
       patternOverlay: patternPreset?.pattern || null,
       shape: selectedShape,
     };
-    onSave(formData);
+    onSave(formData, editNodeId);
     onClose();
-  }, [label, content, selectedBackground, selectedPattern, selectedShape, onSave, onClose]);
+  }, [label, content, selectedBackground, selectedPattern, selectedShape, onSave, onClose, editNodeId]);
 
   const handleContentChange = useCallback((newContent: JSONContent) => {
     setContent(newContent);
@@ -153,9 +185,13 @@ export function FloatingNodeForm({
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Iconify icon="solar:add-circle-bold" width={24} sx={{ color: '#6366f1' }} />
+        <Iconify
+          icon={isEditMode ? 'hugeicons:pencil-edit-02' : 'solar:add-circle-bold'}
+          width={24}
+          sx={{ color: '#6366f1' }}
+        />
         <Typography variant="h6" sx={{ fontWeight: 600, color: '#1f2937' }}>
-          Create Node
+          {isEditMode ? 'Edit Node' : 'Create Node'}
         </Typography>
       </Box>
       <IconButton size="small" onClick={onClose} sx={{ color: '#6b7280' }}>
@@ -317,14 +353,14 @@ export function FloatingNodeForm({
       <Button
         variant="contained"
         onClick={handleSave}
-        startIcon={<Iconify icon="solar:add-circle-bold" width={18} />}
+        startIcon={<Iconify icon={isEditMode ? 'solar:check-circle-bold' : 'solar:add-circle-bold'} width={18} />}
         sx={{
           borderRadius: 2,
           bgcolor: '#6366f1',
           '&:hover': { bgcolor: '#4f46e5' },
         }}
       >
-        Create Node
+        {isEditMode ? 'Save Changes' : 'Create Node'}
       </Button>
     </Box>
   );
