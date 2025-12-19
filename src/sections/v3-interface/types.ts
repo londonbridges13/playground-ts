@@ -112,6 +112,10 @@ export interface CircularNodeData {
   // Shine Effect
   shine?: boolean; // Trigger shine animation on the node
 
+  // Checkbox
+  hasCheckbox?: boolean; // Show checkbox on the node
+  checked?: boolean; // Checkbox checked state
+
   // State (internal)
   index?: number;
   isExiting?: boolean;
@@ -258,6 +262,8 @@ export interface NodeFormData {
   backgroundImage: string | null;
   patternOverlay?: string | null;
   shape: NodeShape;
+  hasCheckbox?: boolean;
+  checked?: boolean;
 }
 
 export interface FloatingNodeFormProps {

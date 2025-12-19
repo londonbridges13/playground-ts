@@ -14,6 +14,8 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Slider from '@mui/material/Slider';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -131,6 +133,7 @@ export function V3AppStoreDialog({
   const [selectedBackground, setSelectedBackground] = useState('magic1');
   const [selectedPattern, setSelectedPattern] = useState('none');
   const [selectedShape, setSelectedShape] = useState<NodeShape>('hexagon');
+  const [hasCheckbox, setHasCheckbox] = useState(false);
 
   // Initialize edit state when entering edit mode
   const handleEnterEditMode = useCallback(() => {
@@ -140,6 +143,7 @@ export function V3AppStoreDialog({
     setSelectedBackground(findBackgroundPresetId(localNode.data?.backgroundImage as string));
     setSelectedPattern(findPatternPresetId(localNode.data?.patternOverlay as string));
     setSelectedShape((localNode.type as NodeShape) || 'hexagon');
+    setHasCheckbox((localNode.data?.hasCheckbox as boolean) || false);
     setIsEditing(true);
   }, [localNode]);
 
@@ -159,6 +163,8 @@ export function V3AppStoreDialog({
       backgroundImage: bgPreset?.image || null,
       patternOverlay: patternPreset?.pattern || null,
       shape: selectedShape,
+      hasCheckbox,
+      checked: (localNode.data?.checked as boolean) || false, // Preserve existing checked state
     };
     const updatedNode = onSaveNode(localNode.id, formData);
     // Update local node state with the returned updated node
@@ -166,7 +172,7 @@ export function V3AppStoreDialog({
       setLocalNode(updatedNode);
     }
     setIsEditing(false);
-  }, [localNode, onSaveNode, editLabel, editContent, selectedBackground, selectedPattern, selectedShape]);
+  }, [localNode, onSaveNode, editLabel, editContent, selectedBackground, selectedPattern, selectedShape, hasCheckbox]);
 
   // Handle content change from NovelEditor
   const handleContentChange = useCallback((newContent: JSONContent) => {
@@ -702,6 +708,46 @@ export function V3AppStoreDialog({
                             />
                           ))}
                         </Box>
+                      </Box>
+
+                      {/* Checkbox Option */}
+                      <Box sx={{ mb: 3 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            mb: 1.5,
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          Checkbox
+                        </Typography>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={hasCheckbox}
+                              onChange={(e) => setHasCheckbox(e.target.checked)}
+                              sx={{
+                                '& .MuiSwitch-switchBase.Mui-checked': {
+                                  color: 'rgba(99, 102, 241, 1)',
+                                },
+                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                  backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                                },
+                                '& .MuiSwitch-track': {
+                                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                                },
+                              }}
+                            />
+                          }
+                          label={
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              Show checkbox on node
+                            </Typography>
+                          }
+                        />
                       </Box>
 
                       {/* Connections Section */}

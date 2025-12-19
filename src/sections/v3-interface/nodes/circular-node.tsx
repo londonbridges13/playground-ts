@@ -1,7 +1,7 @@
 'use client';
 
-import { memo, useEffect, useMemo, useState } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { memo, useEffect, useMemo, useState, useCallback } from 'react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { m, useAnimation } from 'framer-motion';
 import Box from '@mui/material/Box';
@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 
 import type { CircularNodeData, GlowIntensity, ShadowType } from '../types';
 import { MagicCircleBorder } from '../components/magic-border';
+import { NodeCheckbox } from '../components/node-checkbox';
 
 // ----------------------------------------------------------------------
 // Constants
@@ -669,7 +670,24 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
     // Shine Effect
     shine = false,
     index = 0,
+    // Checkbox
+    hasCheckbox = false,
+    checked = false,
   } = nodeData;
+
+  // ReactFlow instance for updating node data
+  const { setNodes } = useReactFlow();
+
+  // Handle checkbox change
+  const handleCheckboxChange = useCallback((newChecked: boolean) => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, checked: newChecked } }
+          : node
+      )
+    );
+  }, [id, setNodes]);
 
   // Memoized values
   const background = useMemo(() => getBackground(nodeData), [nodeData]);
@@ -875,18 +893,71 @@ export const CircularNode = memo(({ data, isConnectable, selected, id }: NodePro
         )}
 
         {/* Label */}
-        <Typography
+        <Box
           sx={{
-            ...textStyle,
-            fontWeight,
-            fontSize,
-            fontFamily,
-            textAlign: 'center',
-            px: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
           }}
         >
-          {label}
-        </Typography>
+          {hasCheckbox && (
+            <NodeCheckbox
+              checked={checked}
+              onChange={handleCheckboxChange}
+              size={14}
+              activeColor="#ff4d00"
+              tickColor="#ffffff"
+              borderColor="rgba(255, 255, 255, 0.5)"
+            />
+          )}
+          <Typography
+            component="span"
+            sx={{
+              ...textStyle,
+              fontWeight,
+              fontSize,
+              fontFamily,
+              textAlign: 'center',
+              px: 1,
+              opacity: hasCheckbox && checked ? 0.7 : 1,
+              transition: 'opacity 0.3s',
+            }}
+          >
+            <Box component="span" sx={{ position: 'relative' }}>
+              {label}
+              {/* Animated strikethrough overlay */}
+              {hasCheckbox && (
+                <Box
+                  component={m.span}
+                  initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                  animate={{ clipPath: checked ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)' }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 320,
+                    damping: 20,
+                    mass: 0.1,
+                    delay: checked ? 0.4 : 0,
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    textDecoration: 'line-through',
+                    textDecorationColor: textColor,
+                    color: 'transparent',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {label}
+                </Box>
+              )}
+            </Box>
+          </Typography>
+        </Box>
 
         {/* Description */}
         {showDescription && description && (

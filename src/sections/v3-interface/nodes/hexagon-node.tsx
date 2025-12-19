@@ -1,13 +1,14 @@
 'use client';
 
-import { memo, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Handle, Position, useConnection, useNodeId } from '@xyflow/react';
+import { memo, useMemo, useRef, useState, useLayoutEffect, useCallback } from 'react';
+import { Handle, Position, useConnection, useNodeId, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 
 import { MagicHexBorder } from '../components/magic-border';
+import { NodeCheckbox } from '../components/node-checkbox';
 
 // ----------------------------------------------------------------------
 // Marble/Bauhaus Background Component
@@ -305,6 +306,24 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
   const handleSize = (data.handleSize as number) ?? 16;
   const handleColor = (data.handleColor as string) ?? '#d1d5db';
   const handleOffset = (data.handleOffset as number) ?? 24;
+
+  // Checkbox
+  const hasCheckbox = (data.hasCheckbox as boolean) ?? false;
+  const checked = (data.checked as boolean) ?? false;
+
+  // ReactFlow instance for updating node data
+  const { setNodes } = useReactFlow();
+
+  // Handle checkbox change
+  const handleCheckboxChange = useCallback((newChecked: boolean) => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, checked: newChecked } }
+          : node
+      )
+    );
+  }, [id, setNodes]);
 
   // Unique IDs for filters
   const clipPathId = useMemo(() => `hex-clip-${id}`, [id]);
@@ -738,6 +757,7 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: 0.5,
               fontWeight: 700,
               backgroundColor: 'transparent',
               color: textColor,
@@ -749,7 +769,54 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
               px: 2,
             }}
           >
-            {data.label as string}
+            {hasCheckbox && (
+              <NodeCheckbox
+                checked={checked}
+                onChange={handleCheckboxChange}
+                size={16}
+                activeColor="#ff4d00"
+                tickColor="#ffffff"
+                borderColor="rgba(255, 255, 255, 0.5)"
+              />
+            )}
+            <Box
+              component="span"
+              sx={{
+                position: 'relative',
+                opacity: hasCheckbox && checked ? 0.7 : 1,
+                transition: 'opacity 0.3s',
+              }}
+            >
+              {data.label as string}
+              {/* Animated strikethrough overlay */}
+              {hasCheckbox && (
+                <Box
+                  component={m.span}
+                  initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                  animate={{ clipPath: checked ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)' }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 320,
+                    damping: 20,
+                    mass: 0.1,
+                    delay: checked ? 0.4 : 0,
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    textDecoration: 'line-through',
+                    textDecorationColor: textColor,
+                    color: 'transparent',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {data.label as string}
+                </Box>
+              )}
+            </Box>
           </Box>
         ) : (
           <Box
@@ -763,6 +830,7 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: 0.5,
               textAlign: 'center',
               px: 4,
               fontWeight: 700,
@@ -772,7 +840,54 @@ export const HexagonNode = memo(({ data, isConnectable, selected, id }: NodeProp
               overflowWrap: 'break-word',
             }}
           >
-            {data.label as string}
+            {hasCheckbox && (
+              <NodeCheckbox
+                checked={checked}
+                onChange={handleCheckboxChange}
+                size={16}
+                activeColor="#ff4d00"
+                tickColor="#ffffff"
+                borderColor="rgba(255, 255, 255, 0.5)"
+              />
+            )}
+            <Box
+              component="span"
+              sx={{
+                position: 'relative',
+                opacity: hasCheckbox && checked ? 0.7 : 1,
+                transition: 'opacity 0.3s',
+              }}
+            >
+              {data.label as string}
+              {/* Animated strikethrough overlay */}
+              {hasCheckbox && (
+                <Box
+                  component={m.span}
+                  initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                  animate={{ clipPath: checked ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)' }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 320,
+                    damping: 20,
+                    mass: 0.1,
+                    delay: checked ? 0.4 : 0,
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    textDecoration: 'line-through',
+                    textDecorationColor: textColor,
+                    color: 'transparent',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {data.label as string}
+                </Box>
+              )}
+            </Box>
           </Box>
         )}
 

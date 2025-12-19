@@ -11,4 +11,5 @@ export { MentionTabsMenu } from './mention-tabs-menu';
 export { CompassIcon } from './compass-icon';
 export type { CompassIconHandle } from './compass-icon';
 export { RecordingWaveform } from './recording-waveform';
+export { NodeCheckbox } from './node-checkbox';
 

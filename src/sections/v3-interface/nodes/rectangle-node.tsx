@@ -1,7 +1,7 @@
 'use client';
 
-import { memo, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Handle, Position, useConnection, useNodeId } from '@xyflow/react';
+import { memo, useMemo, useRef, useState, useLayoutEffect, useCallback } from 'react';
+import { Handle, Position, useConnection, useNodeId, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
 
@@ -10,6 +10,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 
 import { MagicBorder } from '../components/magic-border';
+import { NodeCheckbox } from '../components/node-checkbox';
 
 // ----------------------------------------------------------------------
 // Grain Overlay Component
@@ -107,6 +108,24 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
 
   // Shine Effect
   const shine = data.shine ?? false;
+
+  // Checkbox
+  const hasCheckbox = (data.hasCheckbox as boolean) ?? false;
+  const checked = (data.checked as boolean) ?? false;
+
+  // ReactFlow instance for updating node data
+  const { setNodes } = useReactFlow();
+
+  // Handle checkbox change
+  const handleCheckboxChange = useCallback((newChecked: boolean) => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, checked: newChecked } }
+          : node
+      )
+    );
+  }, [id, setNodes]);
 
   // Unique IDs for filters
   const grainFilterId = useMemo(() => `rect-grain-${id}`, [id]);
@@ -337,35 +356,123 @@ export const RectangleNode = memo(({ data, isConnectable, selected, id }: NodePr
         )}
 
         {/* Content */}
-        {patternOverlay ? (
-          <Chip
-            ref={chipRef}
-            label={data.label as string}
-            sx={{
-              position: 'relative',
-              zIndex: 3,
-              fontWeight: 600,
-              backgroundColor: 'transparent',
-              color: textColor,
-              fontSize: '0.875rem',
-              textShadow: '0 1px 2px rgba(0,0,0,0.1)',
-            }}
-          />
-        ) : (
-          <Typography
-            variant="body2"
-            sx={{
-              position: 'relative',
-              zIndex: 3,
-              textAlign: 'center',
-              px: 2,
-              fontWeight: 500,
-              color: textColor,
-            }}
-          >
-            {data.label as string}
-          </Typography>
-        )}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            position: 'relative',
+            zIndex: 3,
+          }}
+        >
+          {hasCheckbox && (
+            <NodeCheckbox
+              checked={checked}
+              onChange={handleCheckboxChange}
+              size={14}
+              activeColor="#ff4d00"
+              tickColor="#ffffff"
+              borderColor="rgba(255, 255, 255, 0.5)"
+            />
+          )}
+          {patternOverlay ? (
+            <Chip
+              ref={chipRef}
+              label={
+                <Box
+                  component="span"
+                  sx={{
+                    position: 'relative',
+                    opacity: hasCheckbox && checked ? 0.7 : 1,
+                    transition: 'opacity 0.3s',
+                  }}
+                >
+                  {data.label as string}
+                  {hasCheckbox && (
+                    <Box
+                      component={m.span}
+                      initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                      animate={{ clipPath: checked ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)' }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 320,
+                        damping: 20,
+                        mass: 0.1,
+                        delay: checked ? 0.4 : 0,
+                      }}
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        textDecoration: 'line-through',
+                        textDecorationColor: textColor,
+                        color: 'transparent',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      {data.label as string}
+                    </Box>
+                  )}
+                </Box>
+              }
+              sx={{
+                fontWeight: 600,
+                backgroundColor: 'transparent',
+                color: textColor,
+                fontSize: '0.875rem',
+                textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+              }}
+            />
+          ) : (
+            <Typography
+              variant="body2"
+              component="span"
+              sx={{
+                textAlign: 'center',
+                px: 2,
+                fontWeight: 500,
+                color: textColor,
+                opacity: hasCheckbox && checked ? 0.7 : 1,
+                transition: 'opacity 0.3s',
+              }}
+            >
+              <Box component="span" sx={{ position: 'relative' }}>
+                {data.label as string}
+                {hasCheckbox && (
+                  <Box
+                    component={m.span}
+                    initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                    animate={{ clipPath: checked ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)' }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 320,
+                      damping: 20,
+                      mass: 0.1,
+                      delay: checked ? 0.4 : 0,
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      textDecoration: 'line-through',
+                      textDecorationColor: textColor,
+                      color: 'transparent',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {data.label as string}
+                  </Box>
+                )}
+              </Box>
+            </Typography>
+          )}
+        </Box>
 
         {/* Connection Handles - visible on hover */}
         <Handle

@@ -12,6 +12,8 @@ import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 import CloseIcon from '@mui/icons-material/Close';
 
@@ -107,6 +109,7 @@ export function FloatingNodeForm({
   const [selectedBackground, setSelectedBackground] = useState(BACKGROUND_PRESETS[0].id);
   const [selectedPattern, setSelectedPattern] = useState(PATTERN_PRESETS[0].id);
   const [selectedShape, setSelectedShape] = useState<NodeShape>(SHAPE_PRESETS[0].id);
+  const [hasCheckbox, setHasCheckbox] = useState(false);
 
   // Set initial position (right side) when opening
   useEffect(() => {
@@ -133,6 +136,7 @@ export function FloatingNodeForm({
       setSelectedBackground(findBackgroundPresetId(initialData.backgroundImage));
       setSelectedPattern(findPatternPresetId(initialData.patternOverlay));
       setSelectedShape(initialData.shape || SHAPE_PRESETS[0].id);
+      setHasCheckbox(initialData.hasCheckbox || false);
     }
   }, [open, isEditMode, initialData]);
 
@@ -144,6 +148,7 @@ export function FloatingNodeForm({
       setSelectedBackground(BACKGROUND_PRESETS[0].id);
       setSelectedPattern(PATTERN_PRESETS[0].id);
       setSelectedShape(SHAPE_PRESETS[0].id);
+      setHasCheckbox(false);
       setPosition(DEFAULT_POSITION);
       setSize(DEFAULT_SIZE);
     }
@@ -158,10 +163,12 @@ export function FloatingNodeForm({
       backgroundImage: bgPreset?.image || null,
       patternOverlay: patternPreset?.pattern || null,
       shape: selectedShape,
+      hasCheckbox,
+      checked: false, // Default to unchecked when creating/editing
     };
     onSave(formData, editNodeId);
     onClose();
-  }, [label, content, selectedBackground, selectedPattern, selectedShape, onSave, onClose, editNodeId]);
+  }, [label, content, selectedBackground, selectedPattern, selectedShape, hasCheckbox, onSave, onClose, editNodeId]);
 
   const handleContentChange = useCallback((newContent: JSONContent) => {
     setContent(newContent);
@@ -232,6 +239,38 @@ export function FloatingNodeForm({
             },
           }}
         />
+      </Box>
+
+      {/* Checkbox Option */}
+      <Box>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={hasCheckbox}
+              onChange={(e) => setHasCheckbox(e.target.checked)}
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': {
+                  color: '#6366f1',
+                },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  backgroundColor: '#6366f1',
+                },
+              }}
+            />
+          }
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Iconify icon="mdi:checkbox-marked-outline" width={18} sx={{ color: '#6b7280' }} />
+              <Typography variant="subtitle2" sx={{ color: '#374151', fontWeight: 600 }}>
+                Show Checkbox
+              </Typography>
+            </Box>
+          }
+          sx={{ ml: 0 }}
+        />
+        <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mt: 0.5 }}>
+          Adds an interactive checkbox to the left of the node label
+        </Typography>
       </Box>
 
       {/* Content Editor */}
@@ -333,6 +372,7 @@ export function FloatingNodeForm({
           ))}
         </Box>
       </Box>
+
     </Box>
   );
 

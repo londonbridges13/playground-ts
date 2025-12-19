@@ -1387,6 +1387,8 @@ function V3InterfaceViewInner({
       backgroundImage: (node.data?.backgroundImage as string) || null,
       patternOverlay: (node.data?.patternOverlay as string) || null,
       shape: (node.type as NodeFormData['shape']) || 'hexagon',
+      hasCheckbox: (node.data?.hasCheckbox as boolean) || false,
+      checked: (node.data?.checked as boolean) || false,
     });
     setNodeFormOpen(true);
   }, []);
@@ -1408,6 +1410,8 @@ function V3InterfaceViewInner({
               content: formData.content,
               backgroundImage: formData.backgroundImage || n.data?.backgroundImage || '/magic-mg1.png',
               patternOverlay: formData.patternOverlay ?? n.data?.patternOverlay ?? null,
+              hasCheckbox: formData.hasCheckbox ?? n.data?.hasCheckbox ?? false,
+              checked: formData.hasCheckbox ? (n.data?.checked ?? false) : false,
             },
           };
           return updatedNode;
@@ -1428,6 +1432,8 @@ function V3InterfaceViewInner({
         content: formData.content,
         backgroundImage: formData.backgroundImage || '/magic-mg1.png',
         patternOverlay: formData.patternOverlay ?? null,
+        hasCheckbox: formData.hasCheckbox ?? false,
+        checked: false,
       },
     };
   }, []);
@@ -1491,6 +1497,8 @@ function V3InterfaceViewInner({
                   content: formData.content,
                   backgroundImage: formData.backgroundImage || n.data?.backgroundImage || '/magic-mg1.png',
                   patternOverlay: formData.patternOverlay ?? n.data?.patternOverlay ?? null,
+                  hasCheckbox: formData.hasCheckbox ?? n.data?.hasCheckbox ?? false,
+                  checked: formData.hasCheckbox ? (n.data?.checked ?? false) : false,
                 },
               }
             : n
@@ -1529,12 +1537,31 @@ function V3InterfaceViewInner({
         handleSize: 16,
         handleColor: '#d1d5db',
         handleOffset: 10,
+        hasCheckbox: formData.hasCheckbox || false,
+        checked: false,
       },
     };
 
     setNodes((currentNodes) => [...currentNodes, newNode]);
     toast.success(`Node "${formData.label}" created!`);
   }, [nodes.length, reactFlowInstance]);
+
+  // Handle checkbox toggle on a node
+  const handleNodeCheckboxChange = useCallback((nodeId: string, checked: boolean) => {
+    setNodes((currentNodes) =>
+      currentNodes.map((n) =>
+        n.id === nodeId
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                checked,
+              },
+            }
+          : n
+      )
+    );
+  }, []);
 
   // Handle blank canvas - clear all nodes and edges for a fresh start
   const handleBlankCanvas = useCallback(() => {

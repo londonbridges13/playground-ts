@@ -1,12 +1,14 @@
 'use client';
 
-import { memo, useState } from 'react';
-import { Handle, Position, useConnection, useNodeId } from '@xyflow/react';
+import { memo, useState, useCallback } from 'react';
+import { Handle, Position, useConnection, useNodeId, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+
+import { NodeCheckbox } from '../components/node-checkbox';
 
 // ----------------------------------------------------------------------
 // Star Node Component - 5-pointed star using SVG clip-path
@@ -29,6 +31,24 @@ export const StarNode = memo(({ data, isConnectable, selected, id }: NodeProps) 
 
   // Text
   const textColor = (data.textColor as string) ?? '#ffffff';
+
+  // Checkbox
+  const hasCheckbox = (data.hasCheckbox as boolean) ?? false;
+  const checked = (data.checked as boolean) ?? false;
+
+  // ReactFlow instance for updating node data
+  const { setNodes } = useReactFlow();
+
+  // Handle checkbox change
+  const handleCheckboxChange = useCallback((newChecked: boolean) => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, checked: newChecked } }
+          : node
+      )
+    );
+  }, [id, setNodes]);
 
   // Hover state
   const [isHovered, setIsHovered] = useState(false);
@@ -102,20 +122,72 @@ export const StarNode = memo(({ data, isConnectable, selected, id }: NodeProps) 
           }}
         />
 
-        <Typography
-          variant="body2"
+        <Box
           sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
             position: 'relative',
             zIndex: 3,
-            textAlign: 'center',
-            px: 1,
-            fontWeight: 600,
-            color: textColor,
-            fontSize: '0.75rem',
           }}
         >
-          {data.label as string}
-        </Typography>
+          {hasCheckbox && (
+            <NodeCheckbox
+              checked={checked}
+              onChange={handleCheckboxChange}
+              size={12}
+              activeColor="#ff4d00"
+              tickColor="#ffffff"
+              borderColor="rgba(255, 255, 255, 0.5)"
+            />
+          )}
+          <Typography
+            variant="body2"
+            component="span"
+            sx={{
+              textAlign: 'center',
+              px: 1,
+              fontWeight: 600,
+              color: textColor,
+              fontSize: '0.75rem',
+              opacity: hasCheckbox && checked ? 0.7 : 1,
+              transition: 'opacity 0.3s',
+            }}
+          >
+            <Box component="span" sx={{ position: 'relative' }}>
+              {data.label as string}
+              {hasCheckbox && (
+                <Box
+                  component={m.span}
+                  initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                  animate={{ clipPath: checked ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)' }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 320,
+                    damping: 20,
+                    mass: 0.1,
+                    delay: checked ? 0.4 : 0,
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    textDecoration: 'line-through',
+                    textDecorationColor: textColor,
+                    color: 'transparent',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {data.label as string}
+                </Box>
+              )}
+            </Box>
+          </Typography>
+        </Box>
 
         <Handle
           type="target"
