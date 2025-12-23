@@ -28,6 +28,13 @@ const getGoalIds = () => Object.keys(GOALS);
 
 export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'fading';
 
+// Context info for request submission
+export interface FloatingTextInputContext {
+  id: string;
+  title?: string;
+  activeBases: string[];
+}
+
 type FloatingTextInputProps = {
   onSend?: (message: string) => void;
   onGoalSelect?: (goalId: string) => void;
@@ -39,9 +46,31 @@ type FloatingTextInputProps = {
   onLoadModeActivated?: () => void;
   recordingStatus?: RecordingStatus;
   currentGoalId?: string;
+  // NEW: Context and Focus info for request submission
+  context?: FloatingTextInputContext | null;
+  focusId?: string | null;
+  focusTitle?: string | null;
+  isSubmitting?: boolean;
+  onSubmitRequest?: (input: string) => void;
 };
 
-export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNode, onBlankCanvas, onSaveInterface, onLoadInterface, onLoadModeActivated, recordingStatus = 'idle', currentGoalId }: FloatingTextInputProps) {
+export function FloatingTextInput({
+  onSend,
+  onGoalSelect,
+  onMicClick,
+  onCreateNode,
+  onBlankCanvas,
+  onSaveInterface,
+  onLoadInterface,
+  onLoadModeActivated,
+  recordingStatus = 'idle',
+  currentGoalId,
+  context,
+  focusId,
+  focusTitle,
+  isSubmitting = false,
+  onSubmitRequest,
+}: FloatingTextInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [goalMenuAnchor, setGoalMenuAnchor] = useState<null | HTMLElement>(null);
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
@@ -87,7 +116,7 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNo
   }, [inputValue, goalMenuOpen]);
 
   const handleSend = () => {
-    if (inputValue.trim()) {
+    if (inputValue.trim() && !isSubmitting) {
       // Check if it's a goal command
       if (inputValue.startsWith('g/')) {
         const goalQuery = inputValue.slice(2).toLowerCase();
@@ -104,7 +133,16 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNo
         }
       }
 
-      // Regular message
+      // If we have context and onSubmitRequest, use that for API requests
+      if (onSubmitRequest && focusId && context) {
+        console.log('Submitting request with context:', { focusId, contextId: context.id, input: inputValue });
+        onSubmitRequest(inputValue);
+        setInputValue('');
+        setShowShine(true);
+        return;
+      }
+
+      // Fallback to regular message handling (for backwards compatibility)
       console.log('Send clicked:', inputValue);
       onSend?.(inputValue);
       setInputValue('');
@@ -234,6 +272,85 @@ export function FloatingTextInput({ onSend, onGoalSelect, onMicClick, onCreateNo
           zIndex: 10,
         }}
       />
+
+      {/* Context indicator - shows when Focus/Context is active */}
+      {(focusTitle || context?.title) && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            mb: 1.5,
+            px: 0.5,
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              px: 1.5,
+              py: 0.5,
+              borderRadius: '12px',
+              bgcolor: 'rgba(99, 102, 241, 0.1)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+            }}
+          >
+            <Box
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                bgcolor: isSubmitting ? '#f59e0b' : '#22c55e',
+                animation: isSubmitting ? 'pulse 1.2s ease-in-out infinite' : 'none',
+                '@keyframes pulse': {
+                  '0%, 100%': { opacity: 1 },
+                  '50%': { opacity: 0.5 },
+                },
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#6366f1',
+                fontWeight: 500,
+                fontSize: '0.7rem',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {focusTitle || 'Focus'}
+            </Typography>
+            {context?.title && (
+              <>
+                <Typography variant="caption" sx={{ color: '#9ca3af', mx: 0.25 }}>
+                  /
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#8b5cf6',
+                    fontWeight: 500,
+                    fontSize: '0.7rem',
+                  }}
+                >
+                  {context.title}
+                </Typography>
+              </>
+            )}
+          </Box>
+          {context?.activeBases && context.activeBases.length > 0 && (
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#9ca3af',
+                fontSize: '0.65rem',
+              }}
+            >
+              {context.activeBases.length} bases
+            </Typography>
+          )}
+        </Box>
+      )}
 
       {/* Row 1: Search icon + Text input */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>

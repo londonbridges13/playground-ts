@@ -21,6 +21,7 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 import Box from '@mui/material/Box';
 
 import { toast, Snackbar } from 'src/components/snackbar';
+import { migrateFocusInterface, needsMigration, getInterfaceVersion, CURRENT_SCHEMA_VERSION } from 'src/utils/focus-interface-migration';
 import { BlurReveal, BlurFade, HyperText, TextGenerateEffect } from 'src/components/animate';
 
 import { CanvasContainer } from './components/canvas-container';
@@ -46,7 +47,8 @@ import {
   CloudNode,
 } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
-import { useCenteredNodes, useAudioAnalyzer } from './hooks';
+import { useCenteredNodes, useAudioAnalyzer, useRequest } from './hooks';
+import { V3InterfaceProvider, useV3Interface } from './context';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType, NodeFormData } from './types';
 
@@ -1171,6 +1173,10 @@ function V3InterfaceViewInner({
   const reactFlowInstance = useReactFlow();
   const { getViewport } = reactFlowInstance;
 
+  // V3 Interface Context - Focus, Context, Request state
+  const { focus, context, isLoading: isSubmitting } = useV3Interface();
+  const { submitRequest } = useRequest();
+
   // Update nodes when baseCenteredNodes changes
   useEffect(() => {
     setNodes(baseCenteredNodes);
@@ -1574,17 +1580,23 @@ function V3InterfaceViewInner({
     });
   }, []);
 
-  // Handle save interface - export nodes and edges as JSON to clipboard
+  // Handle save interface - export nodes and edges as JSON to clipboard (v2.0 schema)
   const handleSaveInterface = useCallback(() => {
     const interfaceData = {
-      version: '1.0',
-      exportedAt: new Date().toISOString(),
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       viewport: reactFlowInstance.getViewport(),
       nodes: nodes.map((node) => ({
         id: node.id,
         type: node.type,
         position: node.position,
-        data: node.data,
+        width: node.width,
+        height: node.height,
+        zIndex: node.zIndex,
+        parentId: node.parentId,
+        data: {
+          ...node.data,
+          basisId: node.data?.basisId ?? null,
+        },
       })),
       edges: edges.map((edge) => ({
         id: edge.id,
@@ -1593,7 +1605,10 @@ function V3InterfaceViewInner({
         target: edge.target,
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
-        data: edge.data,
+        data: {
+          ...edge.data,
+          relationship: edge.data?.relationship ?? null,
+        },
       })),
     };
 
@@ -1639,7 +1654,12 @@ function V3InterfaceViewInner({
   const handleLoadInterface = useCallback(
     (jsonString: string) => {
       try {
-        const data = JSON.parse(jsonString);
+        const rawData = JSON.parse(jsonString);
+
+        // Migrate to v2.0 schema if needed
+        const wasMigrated = needsMigration(rawData);
+        const originalVersion = getInterfaceVersion(rawData);
+        const data = migrateFocusInterface(rawData);
 
         // Load nodes
         if (data.nodes && Array.isArray(data.nodes)) {
@@ -1663,8 +1683,12 @@ function V3InterfaceViewInner({
           loadModeTimeoutRef.current = null;
         }
 
+        const migrationNote = wasMigrated
+          ? ` (migrated from v${originalVersion} to v${CURRENT_SCHEMA_VERSION})`
+          : '';
+
         toast.success('Interface loaded', {
-          description: `Loaded ${data.nodes?.length || 0} nodes and ${data.edges?.length || 0} edges`,
+          description: `Loaded ${data.nodes?.length || 0} nodes and ${data.edges?.length || 0} edges${migrationNote}`,
         });
       } catch (err) {
         toast.error('Failed to load interface', {
@@ -2310,6 +2334,18 @@ function V3InterfaceViewInner({
           onLoadInterface={handleOpenLoadDialog}
           onLoadModeActivated={handleLoadModeActivated}
           recordingStatus={recordingStatus}
+          // V3 Context props for request submission
+          context={context ? {
+            id: context.id,
+            title: context.title,
+            activeBases: context.activeBases,
+          } : null}
+          focusId={focus?.id}
+          focusTitle={focus?.title}
+          isSubmitting={isSubmitting}
+          onSubmitRequest={(input) => {
+            submitRequest({ input });
+          }}
         />
 
         {/* Floating Chat View */}
@@ -2364,9 +2400,11 @@ function V3InterfaceViewInner({
 
 export function V3InterfaceView(props: V3InterfaceProps) {
   return (
-    <ReactFlowProvider>
-      <V3InterfaceViewInner {...props} />
-    </ReactFlowProvider>
+    <V3InterfaceProvider>
+      <ReactFlowProvider>
+        <V3InterfaceViewInner {...props} />
+      </ReactFlowProvider>
+    </V3InterfaceProvider>
   );
 }
 
