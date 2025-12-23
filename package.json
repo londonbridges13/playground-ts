@@ -36,6 +36,7 @@
     "@fontsource-variable/nunito-sans": "^5.2.6",
     "@fontsource-variable/public-sans": "^5.2.6",
     "@fontsource/barlow": "^5.2.6",
+    "@heroui/drawer": "^2.2.26",
     "@hookform/resolvers": "^5.2.1",
     "@iconify/react": "^6.0.0",
     "@mui/icons-material": "^7.3.4",

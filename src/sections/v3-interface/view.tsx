@@ -33,6 +33,9 @@ import { RecordingWaveform } from './components/recording-waveform';
 import { InteractiveGridPattern, calculateHoveredSquare } from './components/interactive-grid-pattern';
 import { V3AppStoreDialog } from './components/v3-appstore-dialog';
 import { LoadInterfaceDialog } from './components/load-interface-dialog';
+import { SearchDrawer } from './components/search-drawer';
+import { Iconify } from 'src/components/iconify';
+import IconButton from '@mui/material/IconButton';
 import {
   CircularNode,
   HexagonNode,
@@ -1251,6 +1254,9 @@ function V3InterfaceViewInner({
   const [chatOpen, setChatOpen] = useState(false);
   const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
 
+  // State for search drawer
+  const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+
   // State for floating node form
   const [nodeFormOpen, setNodeFormOpen] = useState(false);
   const [nodeFormMode, setNodeFormMode] = useState<'create' | 'edit'>('create');
@@ -1983,6 +1989,25 @@ function V3InterfaceViewInner({
         {renderBackground()}
       </ReactFlow>
 
+      {/* Search FAB - Upper Left */}
+      <IconButton
+        onClick={() => setSearchDrawerOpen(true)}
+        sx={{
+          position: 'fixed',
+          top: 16,
+          left: 16,
+          zIndex: 100,
+          bgcolor: 'background.paper',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+          '&:hover': {
+            bgcolor: 'background.paper',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+          },
+        }}
+      >
+        <Iconify icon="hugeicons:sidebar-left" width={20} />
+      </IconButton>
+
       {/* Floating Text Input - Bottom Center */}
       <Box
         sx={{
@@ -2393,6 +2418,13 @@ function V3InterfaceViewInner({
         open={loadDialogOpen}
         onClose={() => setLoadDialogOpen(false)}
         onLoad={handleLoadInterface}
+      />
+
+      {/* Search Drawer */}
+      <SearchDrawer
+        open={searchDrawerOpen}
+        onClose={() => setSearchDrawerOpen(false)}
+        onNewFocus={handleBlankCanvas}
       />
     </CanvasContainer>
   );
