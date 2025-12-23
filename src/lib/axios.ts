@@ -7,28 +7,72 @@ import { JWT_STORAGE_KEY } from 'src/auth/context/jwt/constant';
 
 // ----------------------------------------------------------------------
 
+// Define content endpoints that should use CONFIG.serverUrl (mock server)
+// All other endpoints will use CONFIG.apiUrl (backend)
+const CONTENT_ENDPOINTS = [
+  '/api/chat',
+  '/api/kanban',
+  '/api/calendar',
+  '/api/mail',
+  '/api/post',
+  '/api/product',
+];
+
 const axiosInstance = axios.create({
-  baseURL: CONFIG.serverUrl,
+  baseURL: CONFIG.serverUrl, // Default to content server
   headers: {
     'Content-Type': 'application/json',
   },
+  // withCredentials will be set conditionally in the interceptor
 });
 
-// Add JWT token to all requests
-axiosInstance.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem(JWT_STORAGE_KEY);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-    console.log('[axios] Added JWT token to request');
-  }
-  return config;
-});
+// Request interceptor to switch baseURL for non-content endpoints and add JWT token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const url = config.url || '';
+
+    // Check if this is a content endpoint
+    const isContentEndpoint = CONTENT_ENDPOINTS.some(endpoint => url.startsWith(endpoint));
+
+    if (!isContentEndpoint) {
+      // Non-content endpoints (auth, entities, focus, etc.) use apiUrl with credentials
+      config.baseURL = CONFIG.apiUrl;
+      config.withCredentials = true;
+    } else {
+      // Content endpoints use serverUrl WITHOUT credentials to avoid CORS issues
+      config.withCredentials = false;
+    }
+
+    // Add JWT token to all requests
+    const token = sessionStorage.getItem(JWT_STORAGE_KEY);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('[axios] Added JWT token to request');
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('📡 Axios Response:', {
+      url: response.config.url,
+      method: response.config.method,
+      status: response.status,
+      data: response.data,
+    });
+    return response;
+  },
   (error) => {
     const message = error?.response?.data?.message || error?.message || 'Something went wrong!';
-    console.error('Axios error:', message);
+    console.error('❌ Axios error:', {
+      message,
+      url: error?.config?.url,
+      status: error?.response?.status,
+      data: error?.response?.data,
+    });
     return Promise.reject(new Error(message));
   }
 );
@@ -60,8 +104,10 @@ export const endpoints = {
   calendar: '/api/calendar',
   auth: {
     me: '/api/auth/me',
-    signIn: '/api/auth/sign-in',
-    signUp: '/api/auth/sign-up',
+    signIn: '/api/auth/login',
+    signUp: '/api/auth/register',
+    session: '/api/auth/session',
+    signOut: '/api/auth/signout',
   },
   mail: {
     list: '/api/mail/list',
@@ -82,6 +128,8 @@ export const endpoints = {
   focus: {
     interface: (id: string) => `/api/focus/${id}/interface`,
     generateInterface: (id: string) => `/api/focus/${id}/generate-interface`,
+    createWithInterface: '/api/focus/create-with-interface',
+    addNode: (id: string) => `/api/focus/${id}/add-node`,
   },
   conversations: {
     start: '/api/conversations/start',

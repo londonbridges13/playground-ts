@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -9,8 +10,15 @@ import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import { toast } from 'sonner';
 import { authAPI } from 'src/lib/api/auth';
+import { useAuthContext } from 'src/auth/hooks';
 
 export default function TestLoginPage() {
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get('returnTo') || '/focus-test/';
+
+  // Get checkUserSession from AuthContext to refresh auth state after login
+  const { checkUserSession } = useAuthContext();
+
   const [email, setEmail] = useState('alice@example.com');
   const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
@@ -32,6 +40,14 @@ export default function TestLoginPage() {
 
       setToken(result.token);
       setUser(result.user);
+
+      // Refresh AuthContext so user is available in other components
+      if (checkUserSession) {
+        console.log('[TestLoginPage] Refreshing AuthContext...');
+        await checkUserSession();
+        console.log('[TestLoginPage] AuthContext refreshed!');
+      }
+
       toast.success('Login successful! Token stored in sessionStorage');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
@@ -44,7 +60,7 @@ export default function TestLoginPage() {
   };
 
   const handleNavigateToChat = () => {
-    window.location.href = '/focus-test/';
+    window.location.href = returnTo;
   };
 
   const handleCheckToken = () => {
@@ -143,7 +159,7 @@ export default function TestLoginPage() {
           onClick={handleNavigateToChat}
           disabled={!token}
         >
-          Go to Chat (Focus Test)
+          Continue to {returnTo === '/focus-test/' ? 'Chat' : returnTo}
         </Button>
       </Box>
 

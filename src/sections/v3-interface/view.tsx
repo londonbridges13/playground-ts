@@ -23,6 +23,9 @@ import Box from '@mui/material/Box';
 import { toast, Snackbar } from 'src/components/snackbar';
 import { migrateFocusInterface, needsMigration, getInterfaceVersion, CURRENT_SCHEMA_VERSION } from 'src/utils/focus-interface-migration';
 import { BlurReveal, BlurFade, HyperText, TextGenerateEffect } from 'src/components/animate';
+import { useAuthContext } from 'src/auth/hooks';
+import { focusInterfaceAPI } from 'src/lib/api/focus-interface';
+import { useRouter, usePathname } from 'src/routes/hooks';
 
 import { CanvasContainer } from './components/canvas-container';
 import { SmoothCursor } from './components/smooth-cursor';
@@ -1177,8 +1180,15 @@ function V3InterfaceViewInner({
   const { getViewport } = reactFlowInstance;
 
   // V3 Interface Context - Focus, Context, Request state
-  const { focus, context, isLoading: isSubmitting } = useV3Interface();
+  const { focus, context, isLoading: isSubmitting, setFocus } = useV3Interface();
   const { submitRequest } = useRequest();
+
+  // Auth context for user ID
+  const { user } = useAuthContext();
+
+  // Router for navigation
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Update nodes when baseCenteredNodes changes
   useEffect(() => {
@@ -1249,6 +1259,9 @@ function V3InterfaceViewInner({
   const [statusText, setStatusText] = useState('Working...');
   // Current step in the transition sequence
   const transitionStepRef = useRef(0);
+  // State for "New Focus" label (shows for 3 seconds after creating new focus)
+  const [showNewFocusLabel, setShowNewFocusLabel] = useState(false);
+  const newFocusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // State for floating chat view
   const [chatOpen, setChatOpen] = useState(false);
@@ -1494,7 +1507,7 @@ function V3InterfaceViewInner({
   }, []);
 
   // Handle creating or editing a node from the form
-  const handleCreateNode = useCallback((formData: NodeFormData, nodeId?: string) => {
+  const handleCreateNode = useCallback(async (formData: NodeFormData, nodeId?: string) => {
     // If nodeId is provided, we're editing an existing node
     if (nodeId) {
       setNodes((currentNodes) =>
@@ -1530,33 +1543,92 @@ function V3InterfaceViewInner({
     // Convert screen center to flow position
     const flowPosition = screenToFlowPosition({ x: centerX, y: centerY });
 
-    // Create a new node with the selected shape
-    const newNode: Node = {
-      id: `${formData.shape}-${Date.now()}`,
-      type: formData.shape,
-      position: flowPosition,
-      data: {
-        label: formData.label,
-        content: formData.content,
-        index: nodes.length,
-        backgroundImage: formData.backgroundImage || '/magic-mg1.png',
-        patternOverlay: formData.patternOverlay || null,
-        grainAmount: 25,
-        grainBlendMode: 'overlay',
-        borderWidth: 5,
-        textColor: '#ffffff',
-        showFloatingHandles: true,
-        handleSize: 16,
-        handleColor: '#d1d5db',
-        handleOffset: 10,
-        hasCheckbox: formData.hasCheckbox || false,
-        checked: false,
-      },
-    };
+    // If we have a focus ID, call the API to persist the node
+    if (focus?.id) {
+      try {
+        // Serialize content to string for API (JSONContent -> string)
+        const description = formData.content
+          ? (typeof formData.content === 'string'
+              ? formData.content
+              : JSON.stringify(formData.content))
+          : undefined;
 
-    setNodes((currentNodes) => [...currentNodes, newNode]);
-    toast.success(`Node "${formData.label}" created!`);
-  }, [nodes.length, reactFlowInstance]);
+        const result = await focusInterfaceAPI.addNode(focus.id, {
+          title: formData.label,
+          description,
+          entityType: 'custom', // Default to custom, could map from shape
+          metadata: {
+            shape: formData.shape,
+            backgroundImage: formData.backgroundImage,
+            patternOverlay: formData.patternOverlay,
+            hasCheckbox: formData.hasCheckbox,
+          },
+          position: flowPosition,
+        });
+
+        // Create the node using the returned basis ID
+        const newNode: Node = {
+          id: result.data.basis.id, // Use the basis ID from API
+          type: formData.shape,
+          position: flowPosition,
+          data: {
+            label: formData.label,
+            content: formData.content,
+            index: nodes.length,
+            backgroundImage: formData.backgroundImage || '/magic-mg1.png',
+            patternOverlay: formData.patternOverlay || null,
+            grainAmount: 25,
+            grainBlendMode: 'overlay',
+            borderWidth: 5,
+            textColor: '#ffffff',
+            showFloatingHandles: true,
+            handleSize: 16,
+            handleColor: '#d1d5db',
+            handleOffset: 10,
+            hasCheckbox: formData.hasCheckbox || false,
+            checked: false,
+            // Store basis reference for future updates
+            basisId: result.data.basis.id,
+          },
+        };
+
+        setNodes((currentNodes) => [...currentNodes, newNode]);
+        toast.success(`Node "${formData.label}" created and saved!`);
+      } catch (error) {
+        console.error('Failed to add node via API:', error);
+        toast.error('Failed to save node', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    } else {
+      // No focus ID - create node locally only (original behavior)
+      const newNode: Node = {
+        id: `${formData.shape}-${Date.now()}`,
+        type: formData.shape,
+        position: flowPosition,
+        data: {
+          label: formData.label,
+          content: formData.content,
+          index: nodes.length,
+          backgroundImage: formData.backgroundImage || '/magic-mg1.png',
+          patternOverlay: formData.patternOverlay || null,
+          grainAmount: 25,
+          grainBlendMode: 'overlay',
+          borderWidth: 5,
+          textColor: '#ffffff',
+          showFloatingHandles: true,
+          handleSize: 16,
+          handleColor: '#d1d5db',
+          handleOffset: 10,
+          hasCheckbox: formData.hasCheckbox || false,
+          checked: false,
+        },
+      };
+
+      setNodes((currentNodes) => [...currentNodes, newNode]);
+      toast.success(`Node "${formData.label}" created!`);
+    }
+  }, [nodes.length, reactFlowInstance, focus?.id]);
 
   // Handle checkbox toggle on a node
   const handleNodeCheckboxChange = useCallback((nodeId: string, checked: boolean) => {
@@ -1575,16 +1647,60 @@ function V3InterfaceViewInner({
     );
   }, []);
 
-  // Handle blank canvas - clear all nodes and edges for a fresh start
-  const handleBlankCanvas = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
-    setChatOpen(false);
-    setNodeFormOpen(false);
-    toast.success('Canvas cleared', {
-      description: 'Starting fresh with a blank canvas',
-    });
-  }, []);
+  // Handle blank canvas - create a new Focus via API and clear canvas
+  const handleBlankCanvas = useCallback(async () => {
+    try {
+      // Get user ID
+      const userId = user?.id;
+      if (!userId) {
+        toast.error('Please sign in to create a new focus', {
+          action: {
+            label: 'Sign In',
+            onClick: () => {
+              router.push(`/test-login?returnTo=${encodeURIComponent(pathname)}`);
+            },
+          },
+        });
+        return;
+      }
+
+      // Create new focus via API
+      const result = await focusInterfaceAPI.createFocus({
+        title: 'New Focus',
+        description: 'A fresh canvas to build your focus',
+        userId,
+        goalIcon: 'solar:target-bold',
+      });
+
+      // Clear canvas
+      setNodes([]);
+      setEdges([]);
+      setChatOpen(false);
+      setNodeFormOpen(false);
+
+      // Update V3Interface context with new focus
+      setFocus(result.focus);
+
+      // Show "New Focus" label for 3 seconds
+      // Clear any existing timeout
+      if (newFocusTimeoutRef.current) {
+        clearTimeout(newFocusTimeoutRef.current);
+      }
+      setShowNewFocusLabel(true);
+      newFocusTimeoutRef.current = setTimeout(() => {
+        setShowNewFocusLabel(false);
+      }, 3000);
+
+      toast.success('New Focus created', {
+        description: result.focus?.title || 'Ready to build',
+      });
+    } catch (error) {
+      console.error('Error creating focus:', error);
+      toast.error('Failed to create focus', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }, [user?.id, setFocus, router, pathname]);
 
   // Handle save interface - export nodes and edges as JSON to clipboard (v2.0 schema)
   const handleSaveInterface = useCallback(() => {
@@ -2025,8 +2141,47 @@ function V3InterfaceViewInner({
         }}
       >
         {/* Status Label - above input */}
+        {/* New Focus state: Shows for 3 seconds after creating new focus */}
+        {showNewFocusLabel && (
+          <BlurReveal duration={600} blur={6} sx={{ mb: 1.5, ml: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: '0.9375rem',
+                  color: '#9ca3af',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                New Focus: {focus?.id}
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: '#17A0EF',
+                  animation: 'popIn 0.3s ease-out forwards',
+                  '@keyframes popIn': {
+                    '0%': {
+                      transform: 'scale(0.4)',
+                      opacity: 0,
+                    },
+                    '100%': {
+                      transform: 'scale(1.15)',
+                      opacity: 1,
+                    },
+                  },
+                }}
+              />
+            </Box>
+          </BlurReveal>
+        )}
+
         {/* Working state: BlurReveal with indicator inside */}
-        {status === 'working' && (
+        {status === 'working' && !showNewFocusLabel && (
           <BlurReveal duration={800} blur={8} sx={{ mb: 1.5, ml: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box

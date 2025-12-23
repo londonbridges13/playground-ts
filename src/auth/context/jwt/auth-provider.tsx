@@ -28,21 +28,48 @@ export function AuthProvider({ children }: Props) {
 
   const checkUserSession = useCallback(async () => {
     try {
+      console.log('🔍 Checking user session...');
       const accessToken = sessionStorage.getItem(JWT_STORAGE_KEY);
 
-      if (accessToken && isValidToken(accessToken)) {
-        setSession(accessToken);
+      if (!accessToken || !isValidToken(accessToken)) {
+        console.log('ℹ️ No valid token found');
+        setState({ user: null, loading: false });
+        return;
+      }
 
-        const res = await axios.get(endpoints.auth.me);
+      console.log('✅ Local token found and valid');
+      setSession(accessToken);
 
-        const { user } = res.data;
+      // Fetch user data from backend using the token
+      console.log('📡 Fetching user data from backend:', endpoints.auth.me);
+      const res = await axios.get(endpoints.auth.me, {
+        withCredentials: true,
+      });
 
+      console.log('📥 User data response:', {
+        status: res.status,
+        data: res.data,
+      });
+
+      // Backend should return user data
+      if (res.data) {
+        // Handle different response formats
+        const user = res.data.user || res.data;
+        console.log('✅ User data found:', user);
         setState({ user: { ...user, accessToken }, loading: false });
       } else {
+        console.log('ℹ️ No user data in response');
         setState({ user: null, loading: false });
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error('❌ Error checking session:', error);
+      if (error?.response) {
+        console.error('Response error:', {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+      // If token is invalid or expired, clear it
       setState({ user: null, loading: false });
     }
   }, [setState]);

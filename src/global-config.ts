@@ -8,6 +8,7 @@ export type ConfigValue = {
   appName: string;
   appVersion: string;
   serverUrl: string;
+  apiUrl: string;
   assetsDir: string;
   isStaticExport: boolean;
   auth: {
@@ -34,7 +35,8 @@ export type ConfigValue = {
 export const CONFIG: ConfigValue = {
   appName: 'Minimal UI',
   appVersion: packageJson.version,
-  serverUrl: process.env.NEXT_PUBLIC_API_URL ?? '',
+  serverUrl: process.env.NEXT_PUBLIC_SERVER_URL ?? '',
+  apiUrl: process.env.NEXT_PUBLIC_API_URL ?? '',
   assetsDir: process.env.NEXT_PUBLIC_ASSETS_DIR ?? '',
   isStaticExport: JSON.parse(process.env.BUILD_STATIC_EXPORT ?? 'false'),
   /**

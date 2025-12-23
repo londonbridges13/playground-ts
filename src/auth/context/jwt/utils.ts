@@ -36,8 +36,13 @@ export function isValidToken(accessToken: string) {
   try {
     const decoded = jwtDecode(accessToken);
 
-    if (!decoded || !('exp' in decoded)) {
+    if (!decoded) {
       return false;
+    }
+
+    // If no exp claim, token is valid (never expires)
+    if (!('exp' in decoded)) {
+      return true;
     }
 
     const currentTime = Date.now() / 1000;
@@ -76,13 +81,13 @@ export async function setSession(accessToken: string | null) {
 
       axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
 
-      const decodedToken = jwtDecode(accessToken); // ~3 days by minimals server
+      const decodedToken = jwtDecode(accessToken);
 
+      // Only set up token expiration if exp claim exists
       if (decodedToken && 'exp' in decodedToken) {
         tokenExpired(decodedToken.exp);
-      } else {
-        throw new Error('Invalid access token!');
       }
+      // If no exp claim, token never expires - no need to set up expiration timer
     } else {
       sessionStorage.removeItem(JWT_STORAGE_KEY);
       delete axios.defaults.headers.common.Authorization;
