@@ -264,6 +264,7 @@ export interface NodeFormData {
   shape: NodeShape;
   hasCheckbox?: boolean;
   checked?: boolean;
+  textColor?: string; // Font color for the node label
 }
 
 export interface FloatingNodeFormProps {

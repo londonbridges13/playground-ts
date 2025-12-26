@@ -55,6 +55,18 @@ const PATTERN_PRESETS = [
   { id: 'pattern2', label: 'Pattern 2', pattern: '/node-patterns/pattern-2.svg' },
 ];
 
+// Font color presets
+const TEXT_COLOR_PRESETS = [
+  { id: 'white', label: 'White', color: '#ffffff' },
+  { id: 'black', label: 'Black', color: '#1a1a2e' },
+  { id: 'gray', label: 'Gray', color: '#6b7280' },
+  { id: 'indigo', label: 'Indigo', color: '#6366f1' },
+  { id: 'amber', label: 'Amber', color: '#f59e0b' },
+  { id: 'emerald', label: 'Emerald', color: '#10b981' },
+  { id: 'rose', label: 'Rose', color: '#f43f5e' },
+  { id: 'sky', label: 'Sky', color: '#0ea5e9' },
+];
+
 // Shape presets for node creation
 const SHAPE_PRESETS: { id: NodeShape; label: string; icon: string }[] = [
   { id: 'hexagon', label: 'Hexagon', icon: 'tabler:hexagon' },
@@ -86,6 +98,13 @@ function findPatternPresetId(patternPath: string | null | undefined): string {
   return preset?.id || 'none';
 }
 
+// Helper to find text color preset ID from color value
+function findTextColorPresetId(colorValue: string | null | undefined): string {
+  if (!colorValue) return TEXT_COLOR_PRESETS[0].id;
+  const preset = TEXT_COLOR_PRESETS.find((p) => p.color === colorValue);
+  return preset?.id || TEXT_COLOR_PRESETS[0].id;
+}
+
 // ----------------------------------------------------------------------
 
 export function FloatingNodeForm({
@@ -110,6 +129,7 @@ export function FloatingNodeForm({
   const [selectedPattern, setSelectedPattern] = useState(PATTERN_PRESETS[0].id);
   const [selectedShape, setSelectedShape] = useState<NodeShape>(SHAPE_PRESETS[0].id);
   const [hasCheckbox, setHasCheckbox] = useState(false);
+  const [selectedTextColor, setSelectedTextColor] = useState(TEXT_COLOR_PRESETS[0].id);
 
   // Set initial position (right side) when opening
   useEffect(() => {
@@ -137,6 +157,7 @@ export function FloatingNodeForm({
       setSelectedPattern(findPatternPresetId(initialData.patternOverlay));
       setSelectedShape(initialData.shape || SHAPE_PRESETS[0].id);
       setHasCheckbox(initialData.hasCheckbox || false);
+      setSelectedTextColor(findTextColorPresetId(initialData.textColor));
     }
   }, [open, isEditMode, initialData]);
 
@@ -149,6 +170,7 @@ export function FloatingNodeForm({
       setSelectedPattern(PATTERN_PRESETS[0].id);
       setSelectedShape(SHAPE_PRESETS[0].id);
       setHasCheckbox(false);
+      setSelectedTextColor(TEXT_COLOR_PRESETS[0].id);
       setPosition(DEFAULT_POSITION);
       setSize(DEFAULT_SIZE);
     }
@@ -157,6 +179,7 @@ export function FloatingNodeForm({
   const handleSave = useCallback(() => {
     const bgPreset = BACKGROUND_PRESETS.find((p) => p.id === selectedBackground);
     const patternPreset = PATTERN_PRESETS.find((p) => p.id === selectedPattern);
+    const textColorPreset = TEXT_COLOR_PRESETS.find((p) => p.id === selectedTextColor);
     const formData: NodeFormData = {
       label: label.trim() || 'New Node',
       content,
@@ -165,10 +188,11 @@ export function FloatingNodeForm({
       shape: selectedShape,
       hasCheckbox,
       checked: false, // Default to unchecked when creating/editing
+      textColor: textColorPreset?.color || '#ffffff',
     };
     onSave(formData, editNodeId);
     onClose();
-  }, [label, content, selectedBackground, selectedPattern, selectedShape, hasCheckbox, onSave, onClose, editNodeId]);
+  }, [label, content, selectedBackground, selectedPattern, selectedShape, hasCheckbox, selectedTextColor, onSave, onClose, editNodeId]);
 
   const handleContentChange = useCallback((newContent: JSONContent) => {
     setContent(newContent);
@@ -366,6 +390,44 @@ export function FloatingNodeForm({
                 },
                 '&:hover': {
                   bgcolor: selectedShape === preset.id ? '#4f46e5' : '#f3f4f6',
+                },
+              }}
+            />
+          ))}
+        </Box>
+      </Box>
+
+      {/* Font Color */}
+      <Box>
+        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+          Font Color
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {TEXT_COLOR_PRESETS.map((preset) => (
+            <Chip
+              key={preset.id}
+              label={preset.label}
+              onClick={() => setSelectedTextColor(preset.id)}
+              variant={selectedTextColor === preset.id ? 'filled' : 'outlined'}
+              size="small"
+              avatar={
+                <Box
+                  sx={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    bgcolor: preset.color,
+                    border: '1px solid rgba(0,0,0,0.2)',
+                    ml: '4px !important',
+                  }}
+                />
+              }
+              sx={{
+                bgcolor: selectedTextColor === preset.id ? '#6366f1' : 'transparent',
+                color: selectedTextColor === preset.id ? 'white' : '#374151',
+                borderColor: '#d1d5db',
+                '&:hover': {
+                  bgcolor: selectedTextColor === preset.id ? '#4f46e5' : '#f3f4f6',
                 },
               }}
             />

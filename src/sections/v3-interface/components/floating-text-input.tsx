@@ -44,6 +44,8 @@ type FloatingTextInputProps = {
   onSaveInterface?: () => void;
   onLoadInterface?: () => void;
   onLoadModeActivated?: () => void;
+  onCopyFocusData?: () => void;
+  onEditFocus?: () => void;
   recordingStatus?: RecordingStatus;
   currentGoalId?: string;
   // NEW: Context and Focus info for request submission
@@ -63,6 +65,8 @@ export function FloatingTextInput({
   onSaveInterface,
   onLoadInterface,
   onLoadModeActivated,
+  onCopyFocusData,
+  onEditFocus,
   recordingStatus = 'idle',
   currentGoalId,
   context,
@@ -234,6 +238,16 @@ export function FloatingTextInput({
   const handleLoadInterfaceClick = () => {
     handleMoreMenuClose();
     onLoadInterface?.();
+  };
+
+  const handleCopyFocusDataClick = () => {
+    handleMoreMenuClose();
+    onCopyFocusData?.();
+  };
+
+  const handleEditFocusClick = () => {
+    handleMoreMenuClose();
+    onEditFocus?.();
   };
 
   return (
@@ -469,6 +483,18 @@ export function FloatingTextInput({
                 <Iconify icon="solar:upload-bold" width={20} />
               </ListItemIcon>
               <ListItemText primary="Load Interface" />
+            </MenuItem>
+            <MenuItem onClick={handleCopyFocusDataClick}>
+              <ListItemIcon>
+                <Iconify icon="solar:copy-bold" width={20} />
+              </ListItemIcon>
+              <ListItemText primary="Copy Focus Data" />
+            </MenuItem>
+            <MenuItem onClick={handleEditFocusClick} disabled={!focusId}>
+              <ListItemIcon>
+                <Iconify icon="solar:pen-bold" width={20} />
+              </ListItemIcon>
+              <ListItemText primary="Edit Focus" />
             </MenuItem>
           </Menu>
         </Box>

@@ -126,6 +126,9 @@ export const endpoints = {
     search: '/api/product/search',
   },
   focus: {
+    get: (id: string) => `/api/focus/${id}`,
+    update: (id: string) => `/api/focus/${id}`,
+    bases: (id: string) => `/api/focus/${id}/bases`,
     interface: (id: string) => `/api/focus/${id}/interface`,
     generateInterface: (id: string) => `/api/focus/${id}/generate-interface`,
     createWithInterface: '/api/focus/create-with-interface',

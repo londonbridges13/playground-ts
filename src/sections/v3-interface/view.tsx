@@ -37,6 +37,7 @@ import { InteractiveGridPattern, calculateHoveredSquare } from './components/int
 import { V3AppStoreDialog } from './components/v3-appstore-dialog';
 import { LoadInterfaceDialog } from './components/load-interface-dialog';
 import { SearchDrawer } from './components/search-drawer';
+import { EditFocusDialog } from './components/edit-focus-dialog';
 import { Iconify } from 'src/components/iconify';
 import IconButton from '@mui/material/IconButton';
 import {
@@ -53,7 +54,7 @@ import {
   CloudNode,
 } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
-import { useCenteredNodes, useAudioAnalyzer, useRequest } from './hooks';
+import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus } from './hooks';
 import { V3InterfaceProvider, useV3Interface } from './context';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType, NodeFormData } from './types';
@@ -1180,8 +1181,11 @@ function V3InterfaceViewInner({
   const { getViewport } = reactFlowInstance;
 
   // V3 Interface Context - Focus, Context, Request state
-  const { focus, context, isLoading: isSubmitting, setFocus } = useV3Interface();
+  const { focus, context, isLoading: isSubmitting, setFocus, setInterface } = useV3Interface();
   const { submitRequest } = useRequest();
+
+  // Focus loading hook (2.6)
+  const { loadFocus, loading: focusLoading } = useFocus();
 
   // Auth context for user ID
   const { user } = useAuthContext();
@@ -1242,6 +1246,12 @@ function V3InterfaceViewInner({
   // State for Load Interface dialog
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
 
+  // State for Edit Focus dialog
+  const [editFocusDialogOpen, setEditFocusDialogOpen] = useState(false);
+
+  // Hook for updating focus
+  const { updateFocus, loading: updateFocusLoading } = useUpdateFocus();
+
   // Handle node double-click to open App Store dialog
   const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
@@ -1269,6 +1279,12 @@ function V3InterfaceViewInner({
 
   // State for search drawer
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+
+  // State for loaded focus data (for copy functionality)
+  const [loadedFocusData, setLoadedFocusData] = useState<{
+    focus: import('./hooks/use-focus').FocusData;
+    interface: import('src/types/focus-interface').FocusInterface | null;
+  } | null>(null);
 
   // State for floating node form
   const [nodeFormOpen, setNodeFormOpen] = useState(false);
@@ -1414,6 +1430,7 @@ function V3InterfaceViewInner({
       shape: (node.type as NodeFormData['shape']) || 'hexagon',
       hasCheckbox: (node.data?.hasCheckbox as boolean) || false,
       checked: (node.data?.checked as boolean) || false,
+      textColor: (node.data?.textColor as string) || '#ffffff',
     });
     setNodeFormOpen(true);
   }, []);
@@ -1524,6 +1541,7 @@ function V3InterfaceViewInner({
                   patternOverlay: formData.patternOverlay ?? n.data?.patternOverlay ?? null,
                   hasCheckbox: formData.hasCheckbox ?? n.data?.hasCheckbox ?? false,
                   checked: formData.hasCheckbox ? (n.data?.checked ?? false) : false,
+                  textColor: formData.textColor || n.data?.textColor || '#ffffff',
                 },
               }
             : n
@@ -1562,6 +1580,7 @@ function V3InterfaceViewInner({
             backgroundImage: formData.backgroundImage,
             patternOverlay: formData.patternOverlay,
             hasCheckbox: formData.hasCheckbox,
+            textColor: formData.textColor,
           },
           position: flowPosition,
         });
@@ -1580,7 +1599,7 @@ function V3InterfaceViewInner({
             grainAmount: 25,
             grainBlendMode: 'overlay',
             borderWidth: 5,
-            textColor: '#ffffff',
+            textColor: formData.textColor || '#ffffff',
             showFloatingHandles: true,
             handleSize: 16,
             handleColor: '#d1d5db',
@@ -1615,7 +1634,7 @@ function V3InterfaceViewInner({
           grainAmount: 25,
           grainBlendMode: 'overlay',
           borderWidth: 5,
-          textColor: '#ffffff',
+          textColor: formData.textColor || '#ffffff',
           showFloatingHandles: true,
           handleSize: 16,
           handleColor: '#d1d5db',
@@ -1755,6 +1774,73 @@ function V3InterfaceViewInner({
   const handleOpenLoadDialog = useCallback(() => {
     setLoadDialogOpen(true);
   }, []);
+
+  // Handle copy focus data to clipboard
+  const handleCopyFocusData = useCallback(() => {
+    if (!loadedFocusData) {
+      toast.warning('No focus data loaded', {
+        description: 'Load a focus first to copy its data',
+      });
+      return;
+    }
+
+    const focusDataJson = JSON.stringify(loadedFocusData, null, 2);
+    navigator.clipboard.writeText(focusDataJson).then(() => {
+      toast.success('Focus data copied!', {
+        description: `Copied ${loadedFocusData.focus.title} data to clipboard`,
+      });
+      console.log('[CopyFocusData] Copied to clipboard:', focusDataJson);
+    }).catch((err) => {
+      console.error('[CopyFocusData] Failed to copy:', err);
+      toast.error('Failed to copy focus data');
+    });
+  }, [loadedFocusData]);
+
+  // Handle open edit focus dialog
+  const handleOpenEditFocusDialog = useCallback(() => {
+    if (!focus?.id) {
+      toast.warning('No focus loaded', {
+        description: 'Load a focus first to edit it',
+      });
+      return;
+    }
+    setEditFocusDialogOpen(true);
+  }, [focus?.id]);
+
+  // Handle save focus (title and description)
+  const handleSaveFocus = useCallback(async (
+    focusId: string,
+    newTitle: string,
+    newDescription: string
+  ): Promise<boolean> => {
+    try {
+      const result = await updateFocus(focusId, {
+        title: newTitle,
+        description: newDescription,
+      });
+
+      if (result) {
+        // Update context with new values
+        setFocus({
+          id: result.id,
+          title: result.title,
+          description: result.description || undefined,
+          userId: result.userId,
+        });
+
+        toast.success('Focus updated', {
+          description: `"${result.title}" saved successfully`,
+        });
+        return true;
+      }
+      toast.error('Failed to update focus');
+      return false;
+    } catch (err) {
+      console.error('[handleSaveFocus] Error:', err);
+      toast.error('Failed to update focus');
+      return false;
+    }
+  }, [updateFocus, setFocus]);
 
   // Handle load mode activation (when user types "l/ ")
   const handleLoadModeActivated = useCallback(() => {
@@ -2513,6 +2599,8 @@ function V3InterfaceViewInner({
           onSaveInterface={handleSaveInterface}
           onLoadInterface={handleOpenLoadDialog}
           onLoadModeActivated={handleLoadModeActivated}
+          onCopyFocusData={handleCopyFocusData}
+          onEditFocus={handleOpenEditFocusDialog}
           recordingStatus={recordingStatus}
           // V3 Context props for request submission
           context={context ? {
@@ -2580,6 +2668,178 @@ function V3InterfaceViewInner({
         open={searchDrawerOpen}
         onClose={() => setSearchDrawerOpen(false)}
         onNewFocus={handleBlankCanvas}
+        onSelectFocus={async (selectedFocus) => {
+          // Log all data about the selected focus
+          console.log('[SearchDrawer] ========== SELECTED FOCUS ==========');
+          console.log('[SearchDrawer] Full Focus Object:', selectedFocus);
+          console.log('[SearchDrawer] Focus ID:', selectedFocus.id);
+          console.log('[SearchDrawer] Focus Title:', selectedFocus.title);
+          console.log('[SearchDrawer] Focus Description:', selectedFocus.description);
+          console.log('[SearchDrawer] Focus Image URL:', selectedFocus.imageUrl);
+          console.log('[SearchDrawer] Focus Created At:', selectedFocus.createdAt);
+          console.log('[SearchDrawer] Focus Updated At:', selectedFocus.updatedAt);
+          console.log('[SearchDrawer] Focus Bases Count:', selectedFocus.basesCount);
+          console.log('[SearchDrawer] =====================================');
+
+          // Set basic focus info immediately (optimistic)
+          setFocus({
+            id: selectedFocus.id,
+            title: selectedFocus.title,
+            description: selectedFocus.description || undefined,
+            userId: '',
+          });
+
+          // Load full focus data and interface via API (2.6)
+          const result = await loadFocus(selectedFocus.id);
+
+          if (result) {
+            // ========== DETAILED FOCUS DATA LOGGING ==========
+            console.log('\n');
+            console.log('╔══════════════════════════════════════════════════════════════╗');
+            console.log('║                    FOCUS DATA FROM API                       ║');
+            console.log('╚══════════════════════════════════════════════════════════════╝');
+            console.log('\n📋 FOCUS METADATA:');
+            console.log('  ID:', result.focus.id);
+            console.log('  Title:', result.focus.title);
+            console.log('  Description:', result.focus.description);
+            console.log('  Image URL:', result.focus.imageUrl);
+            console.log('  User ID:', result.focus.userId);
+            console.log('  Atlas ID:', result.focus.atlasId);
+            console.log('  Path ID:', result.focus.pathId);
+            console.log('  Created:', result.focus.createdAt);
+            console.log('  Updated:', result.focus.updatedAt);
+            console.log('\n👤 USER:');
+            console.log('  ', result.focus.user);
+            console.log('\n📦 METADATA:');
+            console.log('  ', JSON.stringify(result.focus.metadata, null, 2));
+            console.log('\n🔗 BASES (' + result.focus.bases.length + '):');
+            result.focus.bases.forEach((base, i) => {
+              console.log(`  [${i}] ${base.basis.title} (${base.basis.entityType})`);
+              console.log(`      ID: ${base.basisId}`);
+              console.log(`      Position: ${JSON.stringify(base.position)}`);
+            });
+            console.log('\n🎨 INTERFACE:');
+            if (result.interface) {
+              console.log('  Goal:', result.interface.goal);
+              console.log('  Nodes:', result.interface.nodes?.length || 0);
+              console.log('  Edges:', result.interface.edges?.length || 0);
+              console.log('\n  📍 NODES DETAIL:');
+              result.interface.nodes?.forEach((node, i) => {
+                console.log(`    [${i}] ${node.type} - "${node.data?.label}"`);
+                console.log(`        ID: ${node.id}`);
+                console.log(`        Position: ${JSON.stringify(node.position)}`);
+                console.log(`        Data:`, node.data);
+              });
+            } else {
+              console.log('  (No interface data)');
+            }
+            console.log('\n📄 FULL FOCUS OBJECT (JSON):');
+            console.log(JSON.stringify(result.focus, null, 2));
+            console.log('\n📄 FULL INTERFACE OBJECT (JSON):');
+            console.log(JSON.stringify(result.interface, null, 2));
+            console.log('══════════════════════════════════════════════════════════════\n');
+            // ========== END DETAILED LOGGING ==========
+
+            // Store loaded focus data for copy functionality
+            setLoadedFocusData(result);
+
+            // Update context with full focus data
+            setFocus({
+              id: result.focus.id,
+              title: result.focus.title,
+              description: result.focus.description || undefined,
+              userId: result.focus.userId,
+            });
+
+            // Load interface nodes and edges into React Flow
+            if (result.interface) {
+              const { nodes: loadedNodes, edges: loadedEdges } = result.interface;
+
+              if (loadedNodes && Array.isArray(loadedNodes)) {
+                // Create a map of basisId -> basis for quick lookup
+                const basisMap = new Map<string, typeof result.focus.bases[0]['basis']>();
+                result.focus.bases.forEach((base) => {
+                  basisMap.set(base.basisId, base.basis);
+                });
+
+                // Enrich nodes with basis metadata (backgroundImage, patternOverlay, etc.)
+                const enrichedNodes = loadedNodes.map((node) => {
+                  const basisId = node.data?.basisId;
+                  const basis = basisId ? basisMap.get(basisId) : null;
+
+                  if (basis?.metadata) {
+                    const metadata = basis.metadata as Record<string, unknown>;
+                    console.log(`[SearchDrawer] Enriching node ${node.id} with basis metadata:`, metadata);
+
+                    return {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        // Merge basis metadata into node data (basis takes precedence)
+                        backgroundImage: metadata.backgroundImage || node.data?.backgroundImage,
+                        patternOverlay: metadata.patternOverlay || node.data?.patternOverlay,
+                        hasCheckbox: metadata.hasCheckbox ?? node.data?.hasCheckbox,
+                        textColor: metadata.textColor || node.data?.textColor,
+                        // Preserve other node data properties
+                      },
+                    };
+                  }
+                  return node;
+                });
+
+                console.log('[SearchDrawer] Loading enriched nodes:', enrichedNodes.length);
+                setNodes(enrichedNodes as Node[]);
+              }
+
+              if (loadedEdges && Array.isArray(loadedEdges)) {
+                console.log('[SearchDrawer] Loading edges:', loadedEdges.length);
+                setEdges(loadedEdges as Edge[]);
+              }
+
+              // Fit view after loading
+              setTimeout(() => {
+                reactFlowInstance.fitView({ padding: 0.2 });
+              }, 100);
+
+              toast.success('Focus loaded', {
+                description: `Loaded ${loadedNodes?.length || 0} nodes and ${loadedEdges?.length || 0} edges`,
+              });
+            } else {
+              // No interface data - clear canvas
+              console.log('[SearchDrawer] No interface data, clearing canvas');
+              setNodes([]);
+              setEdges([]);
+            }
+          } else {
+            toast.error('Failed to load focus');
+          }
+        }}
+        onSelectBasis={(selectedBasis) => {
+          // Log all data about the selected basis
+          console.log('[SearchDrawer] ========== SELECTED BASIS ==========');
+          console.log('[SearchDrawer] Full Basis Object:', selectedBasis);
+          console.log('[SearchDrawer] Basis ID:', selectedBasis.id);
+          console.log('[SearchDrawer] Basis Title:', selectedBasis.title);
+          console.log('[SearchDrawer] Basis Description:', selectedBasis.description);
+          console.log('[SearchDrawer] Basis Entity Type:', selectedBasis.entityType);
+          console.log('[SearchDrawer] Basis Source Entity ID:', selectedBasis.sourceEntityId);
+          console.log('[SearchDrawer] Basis Created At:', selectedBasis.createdAt);
+          console.log('[SearchDrawer] Basis Updated At:', selectedBasis.updatedAt);
+          console.log('[SearchDrawer] =====================================');
+
+          // TODO: Handle basis selection (e.g., add to context, navigate, etc.)
+        }}
+      />
+
+      {/* Edit Focus Dialog */}
+      <EditFocusDialog
+        open={editFocusDialogOpen}
+        onClose={() => setEditFocusDialogOpen(false)}
+        focusId={focus?.id || null}
+        currentTitle={focus?.title || ''}
+        currentDescription={focus?.description || ''}
+        onSave={handleSaveFocus}
+        isLoading={updateFocusLoading}
       />
     </CanvasContainer>
   );
