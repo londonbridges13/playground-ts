@@ -133,6 +133,13 @@ export const endpoints = {
     generateInterface: (id: string) => `/api/focus/${id}/generate-interface`,
     createWithInterface: '/api/focus/create-with-interface',
     addNode: (id: string) => `/api/focus/${id}/add-node`,
+    // Edge connection endpoints
+    connectNodes: (id: string) => `/api/focus/${id}/connect-nodes`,
+    disconnectNodes: (id: string) => `/api/focus/${id}/disconnect-nodes`,
+    updateEdge: (id: string, edgeId: string) => `/api/focus/${id}/edge/${edgeId}`,
+    batchEdges: (id: string) => `/api/focus/${id}/edges/batch`,
+    // Node position endpoints (Task 4.1)
+    updateNodePositions: (id: string) => `/api/focus/${id}/nodes/positions`,
   },
   conversations: {
     start: '/api/conversations/start',

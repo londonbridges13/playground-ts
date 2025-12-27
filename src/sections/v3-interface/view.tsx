@@ -54,7 +54,7 @@ import {
   CloudNode,
 } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
-import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus } from './hooks';
+import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus, useConnectNodes, useDisconnectNodes, useFocusEdgeSocket, useNodePositionSync, useFocusPositionSocket } from './hooks';
 import { V3InterfaceProvider, useV3Interface } from './context';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType, NodeFormData } from './types';
@@ -1199,10 +1199,43 @@ function V3InterfaceViewInner({
     setNodes(baseCenteredNodes);
   }, [baseCenteredNodes]);
 
-  // Handle node changes (dragging, selecting, etc.)
+  // Hook for updating focus
+  const { updateFocus, loading: updateFocusLoading } = useUpdateFocus();
+
+  // Hook for auto-saving node positions (Task 4.1)
+  const { queuePositionUpdate, forceSave: forceSavePositions } = useNodePositionSync({
+    focusId: focus?.id || null,
+    debounceMs: 500,
+    onSaveComplete: (updated, failed) => {
+      if (failed > 0) {
+        console.warn(`[useNodePositionSync] ${failed} position updates failed`);
+      }
+    },
+    onSaveError: (error) => {
+      console.error('[useNodePositionSync] Save error:', error);
+    },
+  });
+
+  // Handle node changes (dragging, selecting, etc.) with position auto-save
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    []
+    (changes: NodeChange[]) => {
+      // Apply changes to local state first
+      setNodes((nds) => applyNodeChanges(changes, nds));
+
+      // Queue position updates when drag ends (Task 4.1)
+      changes.forEach((change) => {
+        if (
+          change.type === 'position' &&
+          'position' in change &&
+          change.position &&
+          'dragging' in change &&
+          !change.dragging // Only save when drag ends
+        ) {
+          queuePositionUpdate(change.id, change.position);
+        }
+      });
+    },
+    [queuePositionUpdate]
   );
 
   // Handle edge changes (deletion, selection, etc.)
@@ -1211,32 +1244,83 @@ function V3InterfaceViewInner({
     []
   );
 
+  // Hooks for connecting/disconnecting nodes (Task 4)
+  const { connectNodes, loading: connectLoading } = useConnectNodes();
+  const { disconnectByEdgeId, loading: disconnectLoading } = useDisconnectNodes();
+
   // Handle new connections between nodes
   const onConnect = useCallback(
-    (connection: Connection) => {
+    async (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
+
+      // Default edge styling
+      const edgeData = {
+        strokeColor: 'rgba(158, 122, 255, 0.8)',
+        strokeWidth: 2.5,
+        dashArray: '6 8',
+        buttonIcon: 'eva:link-2-fill',
+        buttonSize: 30,
+        buttonColor: '#ffffff',
+        buttonBgColor: 'rgba(158, 122, 255, 0.9)',
+        nodePadding: 20,
+        gridRatio: 10,
+        handleOffset: 10,
+      };
+
+      // Optimistically add edge to local state
+      const tempEdgeId = `temp-${connection.source}-${connection.target}-${Date.now()}`;
       setEdges((eds) =>
         addEdge(
           {
             ...connection,
+            id: tempEdgeId,
             type: 'smartPulseButton',
-            data: {
-              strokeColor: 'rgba(158, 122, 255, 0.8)',
-              strokeWidth: 2.5,
-              dashArray: '6 8',
-              buttonIcon: 'eva:link-2-fill',
-              buttonSize: 30,
-              buttonColor: '#ffffff',
-              buttonBgColor: 'rgba(158, 122, 255, 0.9)',
-              nodePadding: 20,
-              gridRatio: 10,
-              handleOffset: 10,
-            },
+            data: edgeData,
           },
           eds
         )
       );
+
+      // If we have a focus ID, persist to backend
+      if (focus?.id) {
+        try {
+          const result = await connectNodes(focus.id, {
+            sourceNodeId: connection.source,
+            targetNodeId: connection.target,
+            sourceHandle: connection.sourceHandle || undefined,
+            targetHandle: connection.targetHandle || undefined,
+            edgeType: 'smartPulseButton',
+            relationship: {
+              type: 'sequence',
+              direction: 'forward',
+            },
+            styling: {
+              strokeColor: edgeData.strokeColor,
+              strokeWidth: edgeData.strokeWidth,
+            },
+          });
+
+          if (result) {
+            // Replace temp edge with the real edge from backend
+            setEdges((eds) =>
+              eds.map((e) =>
+                e.id === tempEdgeId
+                  ? { ...e, id: result.id, data: { ...e.data, ...result.data } }
+                  : e
+              )
+            );
+            console.log('[onConnect] Edge persisted to backend:', result.id);
+          }
+        } catch (err) {
+          console.error('[onConnect] Failed to persist edge:', err);
+          // Keep the local edge even if backend fails - user can retry
+          toast.error('Failed to save connection', {
+            description: 'The connection was created locally but could not be saved to the server.',
+          });
+        }
+      }
     },
-    []
+    [focus?.id, connectNodes]
   );
 
   // State for App Store dialog
@@ -1249,8 +1333,59 @@ function V3InterfaceViewInner({
   // State for Edit Focus dialog
   const [editFocusDialogOpen, setEditFocusDialogOpen] = useState(false);
 
-  // Hook for updating focus
-  const { updateFocus, loading: updateFocusLoading } = useUpdateFocus();
+  // Socket hook for real-time edge updates (Task 4)
+  useFocusEdgeSocket({
+    focusId: focus?.id || null,
+    onEdgeConnected: useCallback((edge: { id: string; source: string; target: string; type?: string; data?: Record<string, unknown> }) => {
+      console.log('[useFocusEdgeSocket] Edge connected from socket:', edge);
+      // Add edge if it doesn't already exist (avoid duplicates from our own actions)
+      setEdges((eds) => {
+        const exists = eds.some((e) => e.id === edge.id);
+        if (exists) return eds;
+        return [...eds, {
+          ...edge,
+          type: edge.type || 'smartPulseButton',
+          data: edge.data || {
+            strokeColor: 'rgba(158, 122, 255, 0.8)',
+            strokeWidth: 2.5,
+            dashArray: '6 8',
+            buttonIcon: 'eva:link-2-fill',
+            buttonSize: 30,
+            buttonColor: '#ffffff',
+            buttonBgColor: 'rgba(158, 122, 255, 0.9)',
+            nodePadding: 20,
+            gridRatio: 10,
+            handleOffset: 10,
+          },
+        }];
+      });
+    }, []),
+    onEdgeDisconnected: useCallback((edgeId: string) => {
+      console.log('[useFocusEdgeSocket] Edge disconnected from socket:', edgeId);
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+    }, []),
+    onEdgeUpdated: useCallback((edge: { id: string; source: string; target: string; type?: string; data?: Record<string, unknown> }) => {
+      console.log('[useFocusEdgeSocket] Edge updated from socket:', edge);
+      setEdges((eds) => eds.map((e) => e.id === edge.id ? { ...e, ...edge } : e));
+    }, []),
+  });
+
+  // Socket hook for real-time node position updates from other users (Task 4.1)
+  useFocusPositionSocket({
+    focusId: focus?.id || null,
+    onPositionsUpdated: useCallback((positions: Array<{ nodeId: string; position: { x: number; y: number } }>) => {
+      console.log('[useFocusPositionSocket] Positions updated from socket:', positions);
+      setNodes((nds) =>
+        nds.map((node) => {
+          const update = positions.find((p) => p.nodeId === node.id);
+          if (update) {
+            return { ...node, position: update.position };
+          }
+          return node;
+        })
+      );
+    }, []),
+  });
 
   // Handle node double-click to open App Store dialog
   const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
@@ -1498,10 +1633,36 @@ function V3InterfaceViewInner({
   }, []);
 
   // Handle deleting edge from App Store dialog
-  const handleDeleteEdge = useCallback((edgeId: string) => {
+  const handleDeleteEdge = useCallback(async (edgeId: string) => {
+    // Optimistically remove edge from local state
+    const previousEdges = edges;
     setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== edgeId));
-    toast.success('Connection deleted');
-  }, []);
+
+    // If we have a focus ID, persist to backend
+    if (focus?.id) {
+      try {
+        const result = await disconnectByEdgeId(focus.id, edgeId);
+        if (result) {
+          console.log('[handleDeleteEdge] Edge deleted from backend:', result);
+          toast.success('Connection deleted');
+        } else {
+          // Rollback on failure
+          setEdges(previousEdges);
+          toast.error('Failed to delete connection');
+        }
+      } catch (err) {
+        console.error('[handleDeleteEdge] Failed to delete edge:', err);
+        // Rollback on error
+        setEdges(previousEdges);
+        toast.error('Failed to delete connection', {
+          description: 'Could not remove the connection from the server.',
+        });
+      }
+    } else {
+      // No focus ID, just show success for local deletion
+      toast.success('Connection deleted');
+    }
+  }, [focus?.id, disconnectByEdgeId, edges]);
 
   // Keyboard shortcut to open node form (press 'n' key)
   useEffect(() => {

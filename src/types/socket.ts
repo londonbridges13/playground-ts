@@ -63,6 +63,58 @@ export interface AIStreamCompleteData {
 }
 
 // ============================================================================
+// Focus Edge Types (Task 4: Connect and Disconnect nodes)
+// ============================================================================
+
+export interface FocusEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  type?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface FocusNodesConnectedData {
+  focusId: string;
+  edge: FocusEdge;
+}
+
+export interface FocusNodesDisconnectedData {
+  focusId: string;
+  edgeId: string;
+  sourceNodeId?: string;
+  targetNodeId?: string;
+}
+
+export interface FocusEdgeUpdatedData {
+  focusId: string;
+  edge: FocusEdge;
+}
+
+export interface FocusEdgesBatchUpdatedData {
+  focusId: string;
+  created: FocusEdge[];
+  deleted: string[];
+  updated: FocusEdge[];
+}
+
+// Focus node position types (Task 4.1)
+export interface FocusNodePosition {
+  nodeId: string;
+  position: {
+    x: number;
+    y: number;
+  };
+}
+
+export interface FocusNodesPositionsUpdatedData {
+  focusId: string;
+  positions: FocusNodePosition[];
+}
+
+// ============================================================================
 // Socket Event Interfaces
 // ============================================================================
 
@@ -72,6 +124,9 @@ export interface ClientToServerEvents {
   'typing-start': (conversationId: string) => void;
   'typing-stop': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;
+  // Focus events
+  'join-focus': (focusId: string) => void;
+  'leave-focus': (focusId: string) => void;
 }
 
 export interface ServerToClientEvents {
@@ -85,6 +140,13 @@ export interface ServerToClientEvents {
   'ai-stream-chunk': (data: AIStreamChunkData) => void;
   'ai-stream-complete': (data: AIStreamCompleteData) => void;
   'error': (data: SocketErrorData) => void;
+  // Focus edge events (Task 4)
+  'focus:nodes-connected': (data: FocusNodesConnectedData) => void;
+  'focus:nodes-disconnected': (data: FocusNodesDisconnectedData) => void;
+  'focus:edge-updated': (data: FocusEdgeUpdatedData) => void;
+  'focus:edges-batch-updated': (data: FocusEdgesBatchUpdatedData) => void;
+  // Focus node position events (Task 4.1)
+  'focus:nodes-positions-updated': (data: FocusNodesPositionsUpdatedData) => void;
 }
 
 // ============================================================================
