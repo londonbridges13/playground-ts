@@ -40,6 +40,7 @@ type FloatingTextInputProps = {
   onGoalSelect?: (goalId: string) => void;
   onMicClick?: () => void;
   onCreateNode?: () => void;
+  onQuickCreateNode?: () => void; // NEW: "n" + Enter triggers quick node creation snackbar
   onBlankCanvas?: () => void;
   onSaveInterface?: () => void;
   onLoadInterface?: () => void;
@@ -61,6 +62,7 @@ export function FloatingTextInput({
   onGoalSelect,
   onMicClick,
   onCreateNode,
+  onQuickCreateNode,
   onBlankCanvas,
   onSaveInterface,
   onLoadInterface,
@@ -120,6 +122,26 @@ export function FloatingTextInput({
   }, [inputValue, goalMenuOpen]);
 
   const handleSend = () => {
+    const trimmedInput = inputValue.trim().toLowerCase();
+
+    // Quick command: "n" for new node
+    if (trimmedInput === 'n') {
+      console.log('[FloatingTextInput] Quick create node command');
+      setInputValue('');
+      setShowShine(true);
+      onQuickCreateNode?.();
+      return;
+    }
+
+    // Quick command: "f" for new focus
+    if (trimmedInput === 'f') {
+      console.log('[FloatingTextInput] Quick create focus command');
+      setInputValue('');
+      setShowShine(true);
+      onBlankCanvas?.();
+      return;
+    }
+
     if (inputValue.trim() && !isSubmitting) {
       // Check if it's a goal command
       if (inputValue.startsWith('g/')) {

@@ -40,6 +40,7 @@ import { SearchDrawer } from './components/search-drawer';
 import { EditFocusDialog } from './components/edit-focus-dialog';
 import { DeleteFocusDialog } from './components/delete-focus-dialog';
 import { RenameSnackbar } from './components/rename-snackbar';
+import { CreateNodeSnackbar } from './components/create-node-snackbar';
 import { Iconify } from 'src/components/iconify';
 import IconButton from '@mui/material/IconButton';
 import {
@@ -1425,6 +1426,9 @@ function V3InterfaceViewInner({
     currentTitle: string;
   }>({ open: false, focusId: '', currentTitle: '' });
 
+  // State for create node snackbar (shows when "n" + Enter is pressed)
+  const [createNodeSnackbarOpen, setCreateNodeSnackbarOpen] = useState(false);
+
   // State for floating chat view
   const [chatOpen, setChatOpen] = useState(false);
   const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
@@ -1561,6 +1565,93 @@ function V3InterfaceViewInner({
     setEditingNodeData(null);
     setNodeFormOpen(true);
   }, []);
+
+  // Handle quick node creation (opens snackbar for title input)
+  const handleQuickCreateNode = useCallback(() => {
+    setCreateNodeSnackbarOpen(true);
+  }, []);
+
+  // Handle saving a quick-created node (from CreateNodeSnackbar)
+  const handleQuickCreateNodeSave = useCallback(async (title: string): Promise<boolean> => {
+    const { screenToFlowPosition } = reactFlowInstance;
+
+    // Get the center of the current viewport
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const flowPosition = screenToFlowPosition({ x: centerX, y: centerY });
+
+    // If we have a focus ID, call the API to persist the node
+    if (focus?.id) {
+      try {
+        const result = await focusInterfaceAPI.addNode(focus.id, {
+          title,
+          entityType: 'custom',
+          metadata: {
+            shape: 'hexagon',
+          },
+          position: flowPosition,
+        });
+
+        const newNode: Node = {
+          id: result.data.basis.id,
+          type: 'hexagon',
+          position: flowPosition,
+          data: {
+            label: title,
+            index: nodes.length,
+            backgroundImage: '/magic-mg1.png',
+            patternOverlay: null,
+            grainAmount: 25,
+            grainBlendMode: 'overlay',
+            borderWidth: 5,
+            textColor: '#ffffff',
+            showFloatingHandles: true,
+            handleSize: 16,
+            handleColor: '#d1d5db',
+            handleOffset: 10,
+            hasCheckbox: false,
+            checked: false,
+            basisId: result.data.basis.id,
+          },
+        };
+
+        setNodes((currentNodes) => [...currentNodes, newNode]);
+        toast.success(`Node "${title}" created!`);
+        return true;
+      } catch (error) {
+        console.error('Error creating node:', error);
+        toast.error('Failed to create node');
+        return false;
+      }
+    } else {
+      // No focus ID - create node locally only
+      const newNode: Node = {
+        id: `hexagon-${Date.now()}`,
+        type: 'hexagon',
+        position: flowPosition,
+        data: {
+          label: title,
+          index: nodes.length,
+          backgroundImage: '/magic-mg1.png',
+          patternOverlay: null,
+          grainAmount: 25,
+          grainBlendMode: 'overlay',
+          borderWidth: 5,
+          textColor: '#ffffff',
+          showFloatingHandles: true,
+          handleSize: 16,
+          handleColor: '#d1d5db',
+          handleOffset: 10,
+          hasCheckbox: false,
+          checked: false,
+        },
+      };
+
+      setNodes((currentNodes) => [...currentNodes, newNode]);
+      toast.success(`Node "${title}" created!`);
+      return true;
+    }
+  }, [reactFlowInstance, focus?.id, nodes.length, setNodes]);
 
   // Handle closing the node form
   const handleCloseNodeForm = useCallback(() => {
@@ -2106,13 +2197,13 @@ function V3InterfaceViewInner({
       const result = await updateFocus(focusId, { title: newTitle });
 
       if (result) {
-        // Update context with new title
+        // Update context with new title (silent to avoid duplicate toast - we show "Focus renamed" below)
         setFocus({
           id: result.id,
           title: result.title,
           description: result.description || undefined,
           userId: result.userId,
-        });
+        }, { silent: true });
 
         toast.success('Focus renamed', {
           description: newTitle,
@@ -2528,6 +2619,30 @@ function V3InterfaceViewInner({
         <Iconify icon="hugeicons:sidebar-left" width={20} />
       </IconButton>
 
+      {/* New Focus FAB - Below Search FAB */}
+      <IconButton
+        onClick={handleBlankCanvas}
+        sx={{
+          position: 'fixed',
+          top: 60,
+          left: 16,
+          zIndex: 100,
+          width: 32,
+          height: 32,
+          minWidth: 32,
+          backgroundImage: 'url(/mesh/magic7.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          border: '2px solid rgba(255, 255, 255, 0.6)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+          '&:hover': {
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+          },
+        }}
+      >
+        <Iconify icon="mingcute:add-line" width={20} sx={{ color: '#ffffff' }} />
+      </IconButton>
+
       {/* Floating Text Input - Bottom Center */}
       <Box
         sx={{
@@ -2913,6 +3028,7 @@ function V3InterfaceViewInner({
           onSend={handleSendMessage}
           onMicClick={handleMicClick}
           onCreateNode={handleOpenNodeForm}
+          onQuickCreateNode={handleQuickCreateNode}
           onBlankCanvas={handleBlankCanvas}
           onSaveInterface={handleSaveInterface}
           onLoadInterface={handleOpenLoadDialog}
@@ -3181,6 +3297,13 @@ function V3InterfaceViewInner({
         currentTitle={renameSnackbar.currentTitle}
         onClose={() => setRenameSnackbar({ open: false, focusId: '', currentTitle: '' })}
         onSave={handleRenameFocus}
+      />
+
+      {/* Create Node Snackbar - shows when "n" + Enter is pressed */}
+      <CreateNodeSnackbar
+        open={createNodeSnackbarOpen}
+        onClose={() => setCreateNodeSnackbarOpen(false)}
+        onSave={handleQuickCreateNodeSave}
       />
     </CanvasContainer>
   );
