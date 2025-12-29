@@ -40,9 +40,14 @@ export interface V3InterfaceState {
   isLoading: boolean;
 }
 
+export interface SetFocusOptions {
+  /** If true, suppresses the "Focus loaded" toast notification */
+  silent?: boolean;
+}
+
 export interface V3InterfaceActions {
   // Focus actions
-  setFocus: (focus: Focus | null) => void;
+  setFocus: (focus: Focus | null, options?: SetFocusOptions) => void;
 
   // Context actions
   setContext: (context: FocusContext | null) => void;
@@ -88,9 +93,9 @@ export function V3InterfaceProvider({
   const [isLoading, setIsLoading] = useState(false);
 
   // Focus actions
-  const setFocus = useCallback((newFocus: Focus | null) => {
+  const setFocus = useCallback((newFocus: Focus | null, options?: SetFocusOptions) => {
     setFocusState(newFocus);
-    if (newFocus) {
+    if (newFocus && !options?.silent) {
       toast.info('Focus loaded', {
         description: newFocus.title,
       });

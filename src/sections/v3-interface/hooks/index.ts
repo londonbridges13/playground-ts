@@ -42,3 +42,11 @@ export type {
 } from './use-node-position-sync';
 export { useFocusPositionSocket } from './use-focus-position-socket';
 export type { UseFocusPositionSocketOptions } from './use-focus-position-socket';
+
+// Delete hooks (4.2 Delete Focus and Basis)
+export { useDeleteBasis } from './use-delete-basis';
+export type { DeleteBasisResponse } from './use-delete-basis';
+export { useDeleteFocus } from './use-delete-focus';
+export type { DeleteFocusResponse, DeleteFocusOptions } from './use-delete-focus';
+export { useRemoveBasisFromFocus } from './use-remove-basis-from-focus';
+export type { RemoveBasisFromFocusResponse } from './use-remove-basis-from-focus';

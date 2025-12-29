@@ -114,6 +114,31 @@ export interface FocusNodesPositionsUpdatedData {
   positions: FocusNodePosition[];
 }
 
+// Deletion event types (Task 4.2)
+export interface BasisDeletedData {
+  basisId: string;
+  severedConnections: {
+    commits: number;
+    focusBases: number;
+    requestBases: number;
+    messagesUpdated: number;
+  };
+}
+
+export interface FocusDeletedData {
+  focusId: string;
+  deletedBases?: {
+    count: number;
+    basisIds: string[];
+  };
+}
+
+export interface FocusBasisRemovedData {
+  focusId: string;
+  basisId: string;
+  removedEdges: number;
+}
+
 // ============================================================================
 // Socket Event Interfaces
 // ============================================================================
@@ -147,6 +172,10 @@ export interface ServerToClientEvents {
   'focus:edges-batch-updated': (data: FocusEdgesBatchUpdatedData) => void;
   // Focus node position events (Task 4.1)
   'focus:nodes-positions-updated': (data: FocusNodesPositionsUpdatedData) => void;
+  // Deletion events (Task 4.2)
+  'basis:deleted': (data: BasisDeletedData) => void;
+  'focus:deleted': (data: FocusDeletedData) => void;
+  'focus:basis-removed': (data: FocusBasisRemovedData) => void;
 }
 
 // ============================================================================

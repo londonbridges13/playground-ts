@@ -96,11 +96,14 @@ interface V3AppStoreDialogProps {
   node: Node | null;
   edges?: Edge[];
   allNodes?: Node[];
+  focusId?: string | null;
   onClose: () => void;
   onStartChat?: (node: Node) => void;
   onSaveNode?: (nodeId: string, data: NodeFormData) => Node | void;
   onUpdateEdge?: (edgeId: string, data: EdgeDataUpdate) => void;
   onDeleteEdge?: (edgeId: string) => void;
+  onDeleteBasis?: (basisId: string) => Promise<void>;
+  onRemoveFromFocus?: (basisId: string) => Promise<void>;
 }
 
 export function V3AppStoreDialog({
@@ -108,11 +111,14 @@ export function V3AppStoreDialog({
   node,
   edges = [],
   allNodes = [],
+  focusId,
   onClose,
   onStartChat,
   onSaveNode,
   onUpdateEdge,
   onDeleteEdge,
+  onDeleteBasis,
+  onRemoveFromFocus,
 }: V3AppStoreDialogProps) {
   const y = useMotionValue(0);
   const zIndex = useMotionValue(open ? 2 : 0);
@@ -134,6 +140,11 @@ export function V3AppStoreDialog({
   const [selectedPattern, setSelectedPattern] = useState('none');
   const [selectedShape, setSelectedShape] = useState<NodeShape>('hexagon');
   const [hasCheckbox, setHasCheckbox] = useState(false);
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<'delete' | 'remove' | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Initialize edit state when entering edit mode
   const handleEnterEditMode = useCallback(() => {
@@ -178,6 +189,40 @@ export function V3AppStoreDialog({
   const handleContentChange = useCallback((newContent: JSONContent) => {
     setEditContent(newContent);
   }, []);
+
+  // Handle delete basis (permanently delete)
+  const handleDeleteBasis = useCallback(async () => {
+    if (!localNode || !onDeleteBasis) return;
+    const basisId = (localNode.data?.basisId as string) || localNode.id;
+    setIsDeleting(true);
+    try {
+      await onDeleteBasis(basisId);
+      setShowDeleteConfirm(false);
+      setDeleteAction(null);
+      onClose();
+    } catch (err) {
+      console.error('[V3AppStoreDialog] Delete basis error:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [localNode, onDeleteBasis, onClose]);
+
+  // Handle remove from focus (keep basis, remove from interface)
+  const handleRemoveFromFocus = useCallback(async () => {
+    if (!localNode || !onRemoveFromFocus) return;
+    const basisId = (localNode.data?.basisId as string) || localNode.id;
+    setIsDeleting(true);
+    try {
+      await onRemoveFromFocus(basisId);
+      setShowDeleteConfirm(false);
+      setDeleteAction(null);
+      onClose();
+    } catch (err) {
+      console.error('[V3AppStoreDialog] Remove from focus error:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [localNode, onRemoveFromFocus, onClose]);
 
   // Create preview node data that updates in real-time during editing
   const previewNodeData = useMemo(() => {
@@ -483,6 +528,62 @@ export function V3AppStoreDialog({
                           }}
                         >
                           <Iconify icon="hugeicons:pencil-edit-02" width={20} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {/* Remove from Focus button */}
+                    {onRemoveFromFocus && !isEditing && focusId && (
+                      <Tooltip
+                        title="Remove from Focus"
+                        placement="left"
+                        slotProps={{
+                          popper: {
+                            sx: { zIndex: 10000 },
+                          },
+                        }}
+                      >
+                        <IconButton
+                          onClick={() => {
+                            setDeleteAction('remove');
+                            setShowDeleteConfirm(true);
+                          }}
+                          sx={{
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            '&:hover': {
+                              color: '#f59e0b',
+                              bgcolor: 'rgba(245, 158, 11, 0.1)',
+                            },
+                          }}
+                        >
+                          <Iconify icon="eva:minus-circle-fill" width={20} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {/* Delete Basis button */}
+                    {onDeleteBasis && !isEditing && (
+                      <Tooltip
+                        title="Delete Permanently"
+                        placement="left"
+                        slotProps={{
+                          popper: {
+                            sx: { zIndex: 10000 },
+                          },
+                        }}
+                      >
+                        <IconButton
+                          onClick={() => {
+                            setDeleteAction('delete');
+                            setShowDeleteConfirm(true);
+                          }}
+                          sx={{
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            '&:hover': {
+                              color: '#ef4444',
+                              bgcolor: 'rgba(239, 68, 68, 0.1)',
+                            },
+                          }}
+                        >
+                          <Iconify icon="solar:trash-bin-trash-bold" width={20} />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -965,6 +1066,83 @@ export function V3AppStoreDialog({
               </Box>
             </m.div>
           </Box>
+
+          {/* Delete Confirmation Overlay */}
+          {showDeleteConfirm && (
+            <Box
+              sx={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 10001,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'rgba(0, 0, 0, 0.7)',
+              }}
+              onClick={() => {
+                if (!isDeleting) {
+                  setShowDeleteConfirm(false);
+                  setDeleteAction(null);
+                }
+              }}
+            >
+              <Box
+                onClick={(e) => e.stopPropagation()}
+                sx={{
+                  bgcolor: 'rgba(30, 30, 35, 0.98)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: 3,
+                  p: 3,
+                  maxWidth: 400,
+                  width: '90%',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                  <Iconify
+                    icon={deleteAction === 'delete' ? 'solar:trash-bin-trash-bold' : 'eva:minus-circle-fill'}
+                    width={24}
+                    sx={{ color: deleteAction === 'delete' ? '#ef4444' : '#f59e0b' }}
+                  />
+                  <Typography variant="h6" sx={{ color: '#fff' }}>
+                    {deleteAction === 'delete' ? 'Delete Basis' : 'Remove from Focus'}
+                  </Typography>
+                </Box>
+
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', mb: 3 }}>
+                  {deleteAction === 'delete'
+                    ? 'This will permanently delete this basis and all its connections. This action cannot be undone.'
+                    : 'This will remove this node from the current focus. The basis will still exist and can be added to other focuses.'}
+                </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                  <Button
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteAction(null);
+                    }}
+                    disabled={isDeleting}
+                    sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={deleteAction === 'delete' ? handleDeleteBasis : handleRemoveFromFocus}
+                    disabled={isDeleting}
+                    sx={{
+                      bgcolor: deleteAction === 'delete' ? '#ef4444' : '#f59e0b',
+                      '&:hover': {
+                        bgcolor: deleteAction === 'delete' ? '#dc2626' : '#d97706',
+                      },
+                    }}
+                  >
+                    {isDeleting ? 'Processing...' : deleteAction === 'delete' ? 'Delete' : 'Remove'}
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
+          )}
         </>
       )}
     </AnimatePresence>,

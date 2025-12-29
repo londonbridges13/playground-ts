@@ -13,4 +13,5 @@ export type { CompassIconHandle } from './compass-icon';
 export { RecordingWaveform } from './recording-waveform';
 export { NodeCheckbox } from './node-checkbox';
 export { SearchDrawer } from './search-drawer';
-
+export { DeleteFocusDialog } from './delete-focus-dialog';
+export { RenameSnackbar } from './rename-snackbar';

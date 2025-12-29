@@ -9,6 +9,7 @@ export {
 export type {
   Focus,
   PendingRequest,
+  SetFocusOptions,
   V3InterfaceState,
   V3InterfaceActions,
   V3InterfaceContextValue,

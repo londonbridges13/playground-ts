@@ -10,6 +10,8 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { Iconify } from 'src/components/iconify';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -21,6 +23,7 @@ interface EditFocusDialogProps {
   currentTitle: string;
   currentDescription: string;
   onSave: (focusId: string, title: string, description: string) => Promise<boolean>;
+  onDelete?: () => void;
   isLoading?: boolean;
 }
 
@@ -35,6 +38,7 @@ export function EditFocusDialog({
   currentTitle,
   currentDescription,
   onSave,
+  onDelete,
   isLoading = false,
 }: EditFocusDialogProps) {
   const [title, setTitle] = useState(currentTitle);
@@ -116,18 +120,35 @@ export function EditFocusDialog({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={isSaving}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={!canSave}
-          startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : null}
-        >
-          {isSaving ? 'Saving...' : 'Save Changes'}
-        </Button>
+      <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+        {onDelete ? (
+          <Button
+            color="error"
+            onClick={() => {
+              onClose();
+              onDelete();
+            }}
+            disabled={isSaving}
+            startIcon={<Iconify icon="solar:trash-bin-trash-bold" width={18} />}
+          >
+            Delete Focus
+          </Button>
+        ) : (
+          <Box />
+        )}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={!canSave}
+            startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

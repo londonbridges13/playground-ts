@@ -38,6 +38,8 @@ import { V3AppStoreDialog } from './components/v3-appstore-dialog';
 import { LoadInterfaceDialog } from './components/load-interface-dialog';
 import { SearchDrawer } from './components/search-drawer';
 import { EditFocusDialog } from './components/edit-focus-dialog';
+import { DeleteFocusDialog } from './components/delete-focus-dialog';
+import { RenameSnackbar } from './components/rename-snackbar';
 import { Iconify } from 'src/components/iconify';
 import IconButton from '@mui/material/IconButton';
 import {
@@ -54,7 +56,7 @@ import {
   CloudNode,
 } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
-import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus, useConnectNodes, useDisconnectNodes, useFocusEdgeSocket, useNodePositionSync, useFocusPositionSocket } from './hooks';
+import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus, useConnectNodes, useDisconnectNodes, useFocusEdgeSocket, useNodePositionSync, useFocusPositionSocket, useDeleteBasis, useDeleteFocus, useRemoveBasisFromFocus } from './hooks';
 import { V3InterfaceProvider, useV3Interface } from './context';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType, NodeFormData } from './types';
@@ -1248,6 +1250,11 @@ function V3InterfaceViewInner({
   const { connectNodes, loading: connectLoading } = useConnectNodes();
   const { disconnectByEdgeId, loading: disconnectLoading } = useDisconnectNodes();
 
+  // Hooks for deleting focus/basis (Task 4.2)
+  const { deleteBasis, loading: deleteBasisLoading } = useDeleteBasis();
+  const { deleteFocus, loading: deleteFocusLoading } = useDeleteFocus();
+  const { removeBasisFromFocus, loading: removeBasisLoading } = useRemoveBasisFromFocus();
+
   // Handle new connections between nodes
   const onConnect = useCallback(
     async (connection: Connection) => {
@@ -1333,6 +1340,9 @@ function V3InterfaceViewInner({
   // State for Edit Focus dialog
   const [editFocusDialogOpen, setEditFocusDialogOpen] = useState(false);
 
+  // State for Delete Focus dialog (Task 4.2)
+  const [deleteFocusDialogOpen, setDeleteFocusDialogOpen] = useState(false);
+
   // Socket hook for real-time edge updates (Task 4)
   useFocusEdgeSocket({
     focusId: focus?.id || null,
@@ -1407,6 +1417,13 @@ function V3InterfaceViewInner({
   // State for "New Focus" label (shows for 3 seconds after creating new focus)
   const [showNewFocusLabel, setShowNewFocusLabel] = useState(false);
   const newFocusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // State for rename snackbar (shows after creating new focus)
+  const [renameSnackbar, setRenameSnackbar] = useState<{
+    open: boolean;
+    focusId: string;
+    currentTitle: string;
+  }>({ open: false, focusId: '', currentTitle: '' });
 
   // State for floating chat view
   const [chatOpen, setChatOpen] = useState(false);
@@ -1664,6 +1681,69 @@ function V3InterfaceViewInner({
     }
   }, [focus?.id, disconnectByEdgeId, edges]);
 
+  // Handle deleting a basis permanently (Task 4.2)
+  const handleDeleteBasis = useCallback(async (basisId: string) => {
+    // Optimistically remove node and connected edges
+    const previousNodes = nodes;
+    const previousEdges = edges;
+    setNodes((nds) => nds.filter((n) => n.id !== basisId && n.data?.basisId !== basisId));
+    setEdges((eds) => eds.filter((e) => e.source !== basisId && e.target !== basisId));
+
+    try {
+      const result = await deleteBasis(basisId);
+      if (result) {
+        console.log('[handleDeleteBasis] Basis deleted:', result);
+        toast.success('Basis deleted', {
+          description: `Severed ${result.severedConnections.focusBases} focus connections`,
+        });
+      } else {
+        // Rollback on failure
+        setNodes(previousNodes);
+        setEdges(previousEdges);
+        toast.error('Failed to delete basis');
+      }
+    } catch (err) {
+      console.error('[handleDeleteBasis] Error:', err);
+      setNodes(previousNodes);
+      setEdges(previousEdges);
+      toast.error('Failed to delete basis');
+    }
+  }, [nodes, edges, deleteBasis]);
+
+  // Handle removing a basis from focus (Task 4.2)
+  const handleRemoveFromFocus = useCallback(async (basisId: string) => {
+    if (!focus?.id) {
+      toast.error('No focus selected');
+      return;
+    }
+
+    // Optimistically remove node and connected edges
+    const previousNodes = nodes;
+    const previousEdges = edges;
+    setNodes((nds) => nds.filter((n) => n.id !== basisId && n.data?.basisId !== basisId));
+    setEdges((eds) => eds.filter((e) => e.source !== basisId && e.target !== basisId));
+
+    try {
+      const result = await removeBasisFromFocus(focus.id, basisId);
+      if (result) {
+        console.log('[handleRemoveFromFocus] Basis removed:', result);
+        toast.success('Node removed from focus', {
+          description: `Removed ${result.removedEdges} connections`,
+        });
+      } else {
+        // Rollback on failure
+        setNodes(previousNodes);
+        setEdges(previousEdges);
+        toast.error('Failed to remove node');
+      }
+    } catch (err) {
+      console.error('[handleRemoveFromFocus] Error:', err);
+      setNodes(previousNodes);
+      setEdges(previousEdges);
+      toast.error('Failed to remove node');
+    }
+  }, [focus?.id, nodes, edges, removeBasisFromFocus]);
+
   // Keyboard shortcut to open node form (press 'n' key)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1858,8 +1938,8 @@ function V3InterfaceViewInner({
       setChatOpen(false);
       setNodeFormOpen(false);
 
-      // Update V3Interface context with new focus
-      setFocus(result.focus);
+      // Update V3Interface context with new focus (silent to avoid duplicate toast)
+      setFocus(result.focus, { silent: true });
 
       // Show "New Focus" label for 3 seconds
       // Clear any existing timeout
@@ -1871,8 +1951,11 @@ function V3InterfaceViewInner({
         setShowNewFocusLabel(false);
       }, 3000);
 
-      toast.success('New Focus created', {
-        description: result.focus?.title || 'Ready to build',
+      // Show rename snackbar to allow user to rename the focus
+      setRenameSnackbar({
+        open: true,
+        focusId: result.focus?.id || '',
+        currentTitle: result.focus?.title || 'New Focus',
       });
     } catch (error) {
       console.error('Error creating focus:', error);
@@ -1968,6 +2051,17 @@ function V3InterfaceViewInner({
     setEditFocusDialogOpen(true);
   }, [focus?.id]);
 
+  // Handle open delete focus dialog (Task 4.2)
+  const handleOpenDeleteFocusDialog = useCallback(() => {
+    if (!focus?.id) {
+      toast.warning('No focus loaded', {
+        description: 'Load a focus first to delete it',
+      });
+      return;
+    }
+    setDeleteFocusDialogOpen(true);
+  }, [focus?.id]);
+
   // Handle save focus (title and description)
   const handleSaveFocus = useCallback(async (
     focusId: string,
@@ -2002,6 +2096,69 @@ function V3InterfaceViewInner({
       return false;
     }
   }, [updateFocus, setFocus]);
+
+  // Handle rename focus (title only) - used by RenameSnackbar
+  const handleRenameFocus = useCallback(async (
+    focusId: string,
+    newTitle: string
+  ): Promise<boolean> => {
+    try {
+      const result = await updateFocus(focusId, { title: newTitle });
+
+      if (result) {
+        // Update context with new title
+        setFocus({
+          id: result.id,
+          title: result.title,
+          description: result.description || undefined,
+          userId: result.userId,
+        });
+
+        toast.success('Focus renamed', {
+          description: newTitle,
+        });
+        return true;
+      }
+      toast.error('Failed to rename focus');
+      return false;
+    } catch (err) {
+      console.error('[handleRenameFocus] Error:', err);
+      toast.error('Failed to rename focus');
+      return false;
+    }
+  }, [updateFocus, setFocus]);
+
+  // Handle delete focus (Task 4.2)
+  const handleDeleteFocus = useCallback(async (
+    focusId: string,
+    deleteBases: boolean
+  ): Promise<void> => {
+    try {
+      const result = await deleteFocus(focusId, { deleteBases });
+
+      if (result) {
+        toast.success('Focus deleted', {
+          description: deleteBases
+            ? `Deleted focus and ${result.deletedBases?.count || 0} bases`
+            : 'Focus deleted successfully',
+        });
+
+        // Clear the current focus and navigate away
+        setFocus(null);
+        setNodes([]);
+        setEdges([]);
+        setDeleteFocusDialogOpen(false);
+
+        // Navigate to home or focuses list
+        router.push('/v3-interface');
+      } else {
+        throw new Error('Failed to delete focus');
+      }
+    } catch (err) {
+      console.error('[handleDeleteFocus] Error:', err);
+      throw err; // Re-throw to let dialog handle the error
+    }
+  }, [deleteFocus, setFocus, router]);
 
   // Handle load mode activation (when user types "l/ ")
   const handleLoadModeActivated = useCallback(() => {
@@ -2806,6 +2963,7 @@ function V3InterfaceViewInner({
         node={selectedNode}
         edges={edges}
         allNodes={nodes}
+        focusId={focus?.id}
         onClose={() => setAppStoreDialogOpen(false)}
         onStartChat={(node) => {
           setAppStoreDialogOpen(false);
@@ -2815,6 +2973,8 @@ function V3InterfaceViewInner({
         onSaveNode={handleSaveNodeFromDialog}
         onUpdateEdge={handleUpdateEdge}
         onDeleteEdge={handleDeleteEdge}
+        onDeleteBasis={handleDeleteBasis}
+        onRemoveFromFocus={handleRemoveFromFocus}
       />
 
       {/* Load Interface Dialog */}
@@ -3000,7 +3160,27 @@ function V3InterfaceViewInner({
         currentTitle={focus?.title || ''}
         currentDescription={focus?.description || ''}
         onSave={handleSaveFocus}
+        onDelete={handleOpenDeleteFocusDialog}
         isLoading={updateFocusLoading}
+      />
+
+      {/* Delete Focus Dialog (Task 4.2) */}
+      <DeleteFocusDialog
+        open={deleteFocusDialogOpen}
+        focusTitle={focus?.title || ''}
+        focusId={focus?.id || ''}
+        onClose={() => setDeleteFocusDialogOpen(false)}
+        onConfirm={handleDeleteFocus}
+        loading={deleteFocusLoading}
+      />
+
+      {/* Rename Snackbar - shows after creating new focus */}
+      <RenameSnackbar
+        open={renameSnackbar.open}
+        focusId={renameSnackbar.focusId}
+        currentTitle={renameSnackbar.currentTitle}
+        onClose={() => setRenameSnackbar({ open: false, focusId: '', currentTitle: '' })}
+        onSave={handleRenameFocus}
       />
     </CanvasContainer>
   );
