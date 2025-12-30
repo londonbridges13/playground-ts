@@ -11,6 +11,7 @@ import TextField from '@mui/material/TextField';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
+import Tooltip from '@mui/material/Tooltip';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -35,6 +36,11 @@ export interface FloatingTextInputContext {
   activeBases: string[];
 }
 
+// Options passed to onSubmitRequest
+export interface SubmitRequestOptions {
+  researchEnabled?: boolean;
+}
+
 type FloatingTextInputProps = {
   onSend?: (message: string) => void;
   onGoalSelect?: (goalId: string) => void;
@@ -54,7 +60,7 @@ type FloatingTextInputProps = {
   focusId?: string | null;
   focusTitle?: string | null;
   isSubmitting?: boolean;
-  onSubmitRequest?: (input: string) => void;
+  onSubmitRequest?: (input: string, options?: SubmitRequestOptions) => void;
 };
 
 export function FloatingTextInput({
@@ -83,6 +89,7 @@ export function FloatingTextInput({
   const moreMenuOpen = Boolean(moreMenuAnchor);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [showShine, setShowShine] = useState(false);
+  const [researchEnabled, setResearchEnabled] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const goalMenuOpen = Boolean(goalMenuAnchor);
 
@@ -161,8 +168,8 @@ export function FloatingTextInput({
 
       // If we have context and onSubmitRequest, use that for API requests
       if (onSubmitRequest && focusId && context) {
-        console.log('Submitting request with context:', { focusId, contextId: context.id, input: inputValue });
-        onSubmitRequest(inputValue);
+        console.log('Submitting request with context:', { focusId, contextId: context.id, input: inputValue, researchEnabled });
+        onSubmitRequest(inputValue, { researchEnabled });
         setInputValue('');
         setShowShine(true);
         return;
@@ -463,6 +470,25 @@ export function FloatingTextInput({
           >
             <MoreHorizIcon sx={{ fontSize: 20 }} />
           </IconButton>
+
+          {/* Web Research Toggle */}
+          <Tooltip title={researchEnabled ? 'Web research enabled' : 'Enable web research'}>
+            <IconButton
+              size="small"
+              onClick={() => setResearchEnabled(!researchEnabled)}
+              sx={{
+                p: 0.5,
+                color: researchEnabled ? '#3b82f6' : '#9ca3af',
+                bgcolor: researchEnabled ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                '&:hover': {
+                  bgcolor: researchEnabled ? 'rgba(59, 130, 246, 0.15)' : 'rgba(0, 0, 0, 0.04)',
+                },
+              }}
+              aria-label={researchEnabled ? 'Disable web research' : 'Enable web research'}
+            >
+              <Iconify icon={'solar:global-bold' as IconifyProps['icon']} width={20} />
+            </IconButton>
+          </Tooltip>
 
           {/* More Options Menu */}
           <Menu

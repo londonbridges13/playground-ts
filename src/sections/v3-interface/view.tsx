@@ -3128,9 +3128,10 @@ function V3InterfaceViewInner({
           focusId={focus?.id}
           focusTitle={focus?.title}
           isSubmitting={isSubmitting || requestState.isProcessing}
-          onSubmitRequest={async (input) => {
+          onSubmitRequest={async (input, options) => {
             console.log('[V3Interface] ========== onSubmitRequest CALLED ==========');
             console.log('[V3Interface] Input:', input);
+            console.log('[V3Interface] Research Enabled:', options?.researchEnabled ?? false);
             console.log('[V3Interface] Focus ID:', focus?.id);
             console.log('[V3Interface] Context:', context ? { id: context.id, title: context.title, activeBases: context.activeBases } : null);
             console.log('[V3Interface] Socket Connected:', requestSocketConnected);
@@ -3143,7 +3144,7 @@ function V3InterfaceViewInner({
             if (requestSocketConnected && focus?.id) {
               console.log('[V3Interface] Using SOCKET-based request');
               const ack = await sendFocusRequest(input, {
-                researchEnabled: false, // TODO: Add research toggle to UI
+                researchEnabled: options?.researchEnabled ?? false,
                 requestType: 'AI_GENERATION',
               });
               console.log('[V3Interface] Socket request ACK:', ack);
