@@ -63,6 +63,152 @@ export interface AIStreamCompleteData {
 }
 
 // ============================================================================
+// Focus Request Types (Task 3: Make request to Focus AI)
+// ============================================================================
+
+export type FocusRequestType =
+  | 'AI_GENERATION'
+  | 'ENTITY_CREATE'
+  | 'ENTITY_UPDATE'
+  | 'ENTITY_DELETE'
+  | 'ANALYSIS'
+  | 'CUSTOM';
+
+export type FocusRequestStage =
+  | 'STARTED'
+  | 'CLASSIFYING'
+  | 'RESEARCHING'
+  | 'ROUTING'
+  | 'EXECUTING'
+  | 'FINALIZING'
+  | 'COMPLETE'
+  | 'ERROR';
+
+// Client → Server: Submit a focus request
+export interface FocusRequestData {
+  focusId: string;
+  input: string;
+  researchEnabled: boolean;
+  referencedBasisIds?: string[];
+  requestType?: FocusRequestType;
+}
+
+// Server acknowledgment for focus:request
+export interface FocusRequestAck {
+  success: boolean;
+  requestId?: string;
+  workflowId?: string;
+  error?: string;
+}
+
+// Server → Client: Request processing has begun
+export interface FocusRequestStartedData {
+  requestId: string;
+  focusId: string;
+  workflowId: string;
+  timestamp: string;
+}
+
+// Server → Client: Progress update during processing
+export interface FocusRequestProgressData {
+  requestId: string;
+  focusId: string;
+  stage: FocusRequestStage;
+  message: string;
+  progress?: number; // 0-100
+  timestamp: string;
+}
+
+// Server → Client: Request completed successfully
+export interface FocusRequestCompleteData {
+  requestId: string;
+  focusId: string;
+  workflowId: string;
+  response: string;
+  batchId?: string; // If changes proposed (use for approval)
+  researchContext?: Record<string, unknown>;
+  duration: number; // Processing time in ms
+  timestamp: string;
+}
+
+// Server → Client: Request failed
+export interface FocusRequestErrorData {
+  requestId: string;
+  focusId: string;
+  error: string;
+  recoverable: boolean;
+  timestamp: string;
+}
+
+// Proposed change from AI
+export interface ProposedChange {
+  id: string;
+  operation: 'CREATE' | 'UPDATE' | 'DELETE';
+  entityType: string;
+  proposedData: {
+    title: string;
+    description?: string;
+    entityType?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
+
+// Server → Client: AI proposed changes that need approval
+export interface ChangeBatchPendingData {
+  batchId: string;
+  messageId?: string;
+  conversationId?: string;
+  focusId: string;
+  changes: ProposedChange[];
+  timestamp: string;
+}
+
+// Client → Server: Approve batch
+export interface ApproveBatchData {
+  batchId: string;
+}
+
+// Server acknowledgment for approve-batch
+export interface ApproveBatchAck {
+  success: boolean;
+  appliedChanges?: number;
+  error?: string;
+}
+
+// Client → Server: Reject batch
+export interface RejectBatchData {
+  batchId: string;
+  reason?: string;
+}
+
+// Server acknowledgment for reject-batch
+export interface RejectBatchAck {
+  success: boolean;
+  error?: string;
+}
+
+// Server → Client: Batch was approved
+export interface ChangeBatchApprovedData {
+  batchId: string;
+  focusId: string;
+  appliedChanges: number;
+  timestamp: string;
+}
+
+// Server → Client: New Basis was created
+export interface BasisCreatedData {
+  basis: {
+    id: string;
+    title: string;
+    description?: string;
+    entityType: string;
+    metadata: Record<string, unknown>;
+  };
+  focusId?: string;
+  timestamp: string;
+}
+
+// ============================================================================
 // Focus Edge Types (Task 4: Connect and Disconnect nodes)
 // ============================================================================
 
@@ -149,9 +295,25 @@ export interface ClientToServerEvents {
   'typing-start': (conversationId: string) => void;
   'typing-stop': (conversationId: string) => void;
   'send-message': (data: { conversationId: string; content: string }) => void;
-  // Focus events
+  // Focus events (legacy - kept for backwards compatibility)
   'join-focus': (focusId: string) => void;
   'leave-focus': (focusId: string) => void;
+  // Focus subscription events (new format)
+  'focus:subscribe': (data: { focusId: string }) => void;
+  'focus:unsubscribe': (data: { focusId: string }) => void;
+  // Focus request events (Task 3)
+  'focus:request': (
+    data: FocusRequestData,
+    callback: (ack: FocusRequestAck) => void
+  ) => void;
+  'approve-batch': (
+    data: ApproveBatchData,
+    callback: (ack: ApproveBatchAck) => void
+  ) => void;
+  'reject-batch': (
+    data: RejectBatchData,
+    callback: (ack: RejectBatchAck) => void
+  ) => void;
 }
 
 export interface ServerToClientEvents {
@@ -176,6 +338,14 @@ export interface ServerToClientEvents {
   'basis:deleted': (data: BasisDeletedData) => void;
   'focus:deleted': (data: FocusDeletedData) => void;
   'focus:basis-removed': (data: FocusBasisRemovedData) => void;
+  // Focus request events (Task 3)
+  'focus:request-started': (data: FocusRequestStartedData) => void;
+  'focus:request-progress': (data: FocusRequestProgressData) => void;
+  'focus:request-complete': (data: FocusRequestCompleteData) => void;
+  'focus:request-error': (data: FocusRequestErrorData) => void;
+  'change-batch-pending': (data: ChangeBatchPendingData) => void;
+  'change-batch-approved': (data: ChangeBatchApprovedData) => void;
+  'basis-created': (data: BasisCreatedData) => void;
 }
 
 // ============================================================================

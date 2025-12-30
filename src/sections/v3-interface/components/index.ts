@@ -15,3 +15,10 @@ export { NodeCheckbox } from './node-checkbox';
 export { SearchDrawer } from './search-drawer';
 export { DeleteFocusDialog } from './delete-focus-dialog';
 export { RenameSnackbar } from './rename-snackbar';
+
+// Focus Request Snackbars (Task 3)
+export { RequestLoadingSnackbar } from './request-loading-snackbar';
+export { ResponseSnackbar } from './response-snackbar';
+export { ApprovalSnackbar } from './approval-snackbar';
+export { ObjectCreatedSnackbar } from './object-created-snackbar';
+export { RequestErrorSnackbar } from './request-error-snackbar';

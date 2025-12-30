@@ -50,3 +50,13 @@ export { useDeleteFocus } from './use-delete-focus';
 export type { DeleteFocusResponse, DeleteFocusOptions } from './use-delete-focus';
 export { useRemoveBasisFromFocus } from './use-remove-basis-from-focus';
 export type { RemoveBasisFromFocusResponse } from './use-remove-basis-from-focus';
+
+// Focus Request hooks (3. Make request to Focus AI)
+export { useFocusRequestSocket } from './use-focus-request-socket';
+export type {
+  FocusRequestState,
+  PendingBatch,
+  CreatedBasis,
+  UseFocusRequestSocketOptions,
+  UseFocusRequestSocketReturn,
+} from './use-focus-request-socket';

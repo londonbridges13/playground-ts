@@ -41,6 +41,11 @@ import { EditFocusDialog } from './components/edit-focus-dialog';
 import { DeleteFocusDialog } from './components/delete-focus-dialog';
 import { RenameSnackbar } from './components/rename-snackbar';
 import { CreateNodeSnackbar } from './components/create-node-snackbar';
+import { RequestLoadingSnackbar } from './components/request-loading-snackbar';
+import { ResponseSnackbar } from './components/response-snackbar';
+import { ApprovalSnackbar } from './components/approval-snackbar';
+import { ObjectCreatedSnackbar } from './components/object-created-snackbar';
+import { RequestErrorSnackbar } from './components/request-error-snackbar';
 import { Iconify } from 'src/components/iconify';
 import IconButton from '@mui/material/IconButton';
 import {
@@ -57,7 +62,8 @@ import {
   CloudNode,
 } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
-import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus, useConnectNodes, useDisconnectNodes, useFocusEdgeSocket, useNodePositionSync, useFocusPositionSocket, useDeleteBasis, useDeleteFocus, useRemoveBasisFromFocus } from './hooks';
+import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus, useConnectNodes, useDisconnectNodes, useFocusEdgeSocket, useNodePositionSync, useFocusPositionSocket, useDeleteBasis, useDeleteFocus, useRemoveBasisFromFocus, useFocusRequestSocket } from './hooks';
+import type { CreatedBasis } from './hooks';
 import { V3InterfaceProvider, useV3Interface } from './context';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
 import type { V3InterfaceProps, BackgroundType, NodeFormData } from './types';
@@ -1184,7 +1190,7 @@ function V3InterfaceViewInner({
   const { getViewport } = reactFlowInstance;
 
   // V3 Interface Context - Focus, Context, Request state
-  const { focus, context, isLoading: isSubmitting, setFocus, setInterface } = useV3Interface();
+  const { focus, context, isLoading: isSubmitting, setFocus, setContext, setInterface } = useV3Interface();
   const { submitRequest } = useRequest();
 
   // Focus loading hook (2.6)
@@ -1425,6 +1431,69 @@ function V3InterfaceViewInner({
     focusId: string;
     currentTitle: string;
   }>({ open: false, focusId: '', currentTitle: '' });
+
+  // State for Focus Request snackbars (Task 3)
+  const [showLoadingSnackbar, setShowLoadingSnackbar] = useState(false);
+  const [showResponseSnackbar, setShowResponseSnackbar] = useState(false);
+  const [showApprovalSnackbar, setShowApprovalSnackbar] = useState(false);
+  const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
+  const [currentCreatedBasis, setCurrentCreatedBasis] = useState<CreatedBasis | null>(null);
+  const [showObjectCreatedSnackbar, setShowObjectCreatedSnackbar] = useState(false);
+  const [lastRequestInput, setLastRequestInput] = useState<string>('');
+
+  // Focus Request Socket Hook (Task 3)
+  const {
+    connected: requestSocketConnected,
+    requestState,
+    pendingBatch,
+    createdBases,
+    sendRequest: sendFocusRequest,
+    approveBatch,
+    rejectBatch,
+    resetRequestState,
+    clearPendingBatch,
+    clearCreatedBases,
+  } = useFocusRequestSocket({
+    focusId: focus?.id || null,
+    onRequestStarted: () => {
+      setShowLoadingSnackbar(true);
+      setShowResponseSnackbar(false);
+      setShowErrorSnackbar(false);
+    },
+    onRequestProgress: () => {
+      // Loading snackbar updates automatically via requestState
+    },
+    onRequestComplete: (data) => {
+      setShowLoadingSnackbar(false);
+      setShowResponseSnackbar(true);
+      if (data.batchId) {
+        // Will show approval snackbar when change-batch-pending arrives
+      }
+    },
+    onRequestError: () => {
+      setShowLoadingSnackbar(false);
+      setShowErrorSnackbar(true);
+    },
+    onBatchPending: () => {
+      setShowApprovalSnackbar(true);
+    },
+    onBatchApproved: () => {
+      setShowApprovalSnackbar(false);
+      toast.success('Changes applied successfully');
+    },
+    onBasisCreated: (data) => {
+      setCurrentCreatedBasis({
+        id: data.basis.id,
+        title: data.basis.title,
+        description: data.basis.description,
+        entityType: data.basis.entityType,
+        metadata: data.basis.metadata,
+        focusId: data.focusId,
+        timestamp: data.timestamp,
+      });
+      setShowObjectCreatedSnackbar(true);
+    },
+  });
 
   // State for create node snackbar (shows when "n" + Enter is pressed)
   const [createNodeSnackbarOpen, setCreateNodeSnackbarOpen] = useState(false);
@@ -2032,6 +2101,20 @@ function V3InterfaceViewInner({
       // Update V3Interface context with new focus (silent to avoid duplicate toast)
       setFocus(result.focus, { silent: true });
 
+      // Create context for this new focus session (enables socket-based requests)
+      setContext({
+        id: `ctx-${result.focus.id}-${Date.now()}`,
+        title: result.focus.title || 'New Focus',
+        description: result.focus.description || undefined,
+        activeBases: [], // New focus has no bases yet
+        metadata: {},
+        isActive: true,
+        focusId: result.focus.id,
+        userId: user?.id || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
       // Show "New Focus" label for 3 seconds
       // Clear any existing timeout
       if (newFocusTimeoutRef.current) {
@@ -2054,7 +2137,7 @@ function V3InterfaceViewInner({
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     }
-  }, [user?.id, setFocus, router, pathname]);
+  }, [user?.id, setFocus, setContext, router, pathname]);
 
   // Handle save interface - export nodes and edges as JSON to clipboard (v2.0 schema)
   const handleSaveInterface = useCallback(() => {
@@ -3044,9 +3127,35 @@ function V3InterfaceViewInner({
           } : null}
           focusId={focus?.id}
           focusTitle={focus?.title}
-          isSubmitting={isSubmitting}
-          onSubmitRequest={(input) => {
-            submitRequest({ input });
+          isSubmitting={isSubmitting || requestState.isProcessing}
+          onSubmitRequest={async (input) => {
+            console.log('[V3Interface] ========== onSubmitRequest CALLED ==========');
+            console.log('[V3Interface] Input:', input);
+            console.log('[V3Interface] Focus ID:', focus?.id);
+            console.log('[V3Interface] Context:', context ? { id: context.id, title: context.title, activeBases: context.activeBases } : null);
+            console.log('[V3Interface] Socket Connected:', requestSocketConnected);
+            console.log('[V3Interface] ================================================');
+
+            // Store input for potential retry
+            setLastRequestInput(input);
+
+            // Use socket-based request if connected, otherwise fall back to REST
+            if (requestSocketConnected && focus?.id) {
+              console.log('[V3Interface] Using SOCKET-based request');
+              const ack = await sendFocusRequest(input, {
+                researchEnabled: false, // TODO: Add research toggle to UI
+                requestType: 'AI_GENERATION',
+              });
+              console.log('[V3Interface] Socket request ACK:', ack);
+              if (!ack.success) {
+                toast.error(ack.error || 'Failed to send request');
+              }
+            } else {
+              console.log('[V3Interface] Using REST-based request (fallback)');
+              console.log('[V3Interface] Reason: requestSocketConnected=', requestSocketConnected, 'focus?.id=', focus?.id);
+              // Fallback to existing REST-based request
+              submitRequest({ input });
+            }
           }}
         />
 
@@ -3180,12 +3289,26 @@ function V3InterfaceViewInner({
             // Store loaded focus data for copy functionality
             setLoadedFocusData(result);
 
-            // Update context with full focus data
+            // Update focus state
             setFocus({
               id: result.focus.id,
               title: result.focus.title,
               description: result.focus.description || undefined,
               userId: result.focus.userId,
+            });
+
+            // Create context for this focus session (enables socket-based requests)
+            setContext({
+              id: `ctx-${result.focus.id}-${Date.now()}`,
+              title: result.focus.title,
+              description: result.focus.description || undefined,
+              activeBases: result.focus.bases.map((b) => b.basisId),
+              metadata: {},
+              isActive: true,
+              focusId: result.focus.id,
+              userId: result.focus.userId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
             });
 
             // Load interface nodes and edges into React Flow
@@ -3304,6 +3427,98 @@ function V3InterfaceViewInner({
         open={createNodeSnackbarOpen}
         onClose={() => setCreateNodeSnackbarOpen(false)}
         onSave={handleQuickCreateNodeSave}
+      />
+
+      {/* Focus Request Snackbars (Task 3) */}
+      <RequestLoadingSnackbar
+        open={showLoadingSnackbar}
+        stage={requestState.stage}
+        progress={requestState.progress}
+        message={requestState.message}
+        onClose={() => setShowLoadingSnackbar(false)}
+      />
+
+      <ResponseSnackbar
+        open={showResponseSnackbar}
+        response={requestState.response}
+        duration={requestState.duration}
+        hasBatch={!!pendingBatch}
+        onClose={() => {
+          setShowResponseSnackbar(false);
+          resetRequestState();
+        }}
+        onViewBatch={() => {
+          setShowResponseSnackbar(false);
+          setShowApprovalSnackbar(true);
+        }}
+      />
+
+      <ApprovalSnackbar
+        open={showApprovalSnackbar && !!pendingBatch}
+        batchId={pendingBatch?.batchId || ''}
+        changes={pendingBatch?.changes || []}
+        onApprove={async (batchId) => {
+          const ack = await approveBatch(batchId);
+          if (ack.success) {
+            setShowApprovalSnackbar(false);
+          } else {
+            toast.error(ack.error || 'Failed to approve changes');
+          }
+        }}
+        onReject={async (batchId, reason) => {
+          const ack = await rejectBatch(batchId, reason);
+          if (ack.success) {
+            setShowApprovalSnackbar(false);
+            toast.info('Changes rejected');
+          } else {
+            toast.error(ack.error || 'Failed to reject changes');
+          }
+        }}
+        onClose={() => {
+          setShowApprovalSnackbar(false);
+          clearPendingBatch();
+        }}
+      />
+
+      <ObjectCreatedSnackbar
+        open={showObjectCreatedSnackbar}
+        basis={currentCreatedBasis}
+        onClose={() => {
+          setShowObjectCreatedSnackbar(false);
+          setCurrentCreatedBasis(null);
+        }}
+        onViewBasis={(basisId) => {
+          // Find the node and open its dialog
+          const node = nodes.find((n) => n.id === basisId);
+          if (node) {
+            setSelectedNode(node);
+            setAppStoreDialogOpen(true);
+          }
+          setShowObjectCreatedSnackbar(false);
+          setCurrentCreatedBasis(null);
+        }}
+      />
+
+      <RequestErrorSnackbar
+        open={showErrorSnackbar}
+        error={requestState.error}
+        recoverable={requestState.recoverable}
+        onClose={() => {
+          setShowErrorSnackbar(false);
+          resetRequestState();
+        }}
+        onRetry={async () => {
+          setShowErrorSnackbar(false);
+          if (lastRequestInput && focus?.id) {
+            const ack = await sendFocusRequest(lastRequestInput, {
+              researchEnabled: false,
+              requestType: 'AI_GENERATION',
+            });
+            if (!ack.success) {
+              toast.error(ack.error || 'Retry failed');
+            }
+          }
+        }}
       />
     </CanvasContainer>
   );
