@@ -209,6 +209,128 @@ export interface BasisCreatedData {
 }
 
 // ============================================================================
+// Focus Voice Types (Task 9: Voice request)
+// ============================================================================
+
+export type FocusVoiceRequestType =
+  | 'AI_GENERATION'
+  | 'ENTITY_CREATE'
+  | 'ENTITY_UPDATE'
+  | 'ANALYSIS';
+
+// Voice session configuration
+export interface FocusVoiceConfig {
+  language?: string; // Default: 'en'
+  enableChunking?: boolean; // Enable semantic chunking (default: false)
+  autoSubmit?: boolean; // Auto-submit to CRW3 on end (default: true)
+}
+
+// Client → Server: Start voice session
+export interface FocusVoiceStartData {
+  focusId: string;
+  researchEnabled: boolean;
+  referencedBasisIds?: string[];
+  requestType?: FocusVoiceRequestType;
+  config?: FocusVoiceConfig;
+}
+
+// Client → Server: Stream audio chunk
+export interface FocusVoiceAudioData {
+  sessionId: string;
+  audioChunk: ArrayBuffer | Buffer;
+}
+
+// Client → Server: End voice session
+export interface FocusVoiceEndData {
+  sessionId: string;
+  submitToCRW3?: boolean; // Override autoSubmit (default: true)
+}
+
+// Server acknowledgment for focus:voice-start
+export interface FocusVoiceAck {
+  success: boolean;
+  sessionId?: string;
+  error?: string;
+}
+
+// Server → Client: Session started confirmation
+export interface FocusVoiceStartedData {
+  sessionId: string;
+  focusId: string;
+  timestamp: string;
+}
+
+// Server → Client: Real-time partial transcript (as user speaks)
+export interface FocusVoicePartialData {
+  sessionId: string;
+  focusId: string;
+  transcript: string; // Current partial text
+  timestamp: string;
+}
+
+// Server → Client: Final transcript segment (confirmed words)
+export interface FocusVoiceTranscriptData {
+  sessionId: string;
+  focusId: string;
+  transcript: string;
+  results: Array<{
+    type: 'word' | 'punctuation';
+    content: string;
+    start_time: number;
+    end_time: number;
+    confidence?: number;
+  }>;
+  timestamp: string;
+}
+
+// Server → Client: Semantic chunk (when enableChunking: true)
+export interface FocusVoiceChunkData {
+  sessionId: string;
+  focusId: string;
+  chunk: {
+    id: string;
+    text: string;
+    wordCount: number;
+    confidence: number;
+    reason: string; // Why chunk was created (e.g., 'topic_shift', 'pause')
+  };
+  timestamp: string;
+}
+
+// Server → Client: CRW3 processing started
+export interface FocusVoiceProcessingData {
+  sessionId: string;
+  focusId: string;
+  fullTranscript: string;
+  workflowId: string;
+  timestamp: string;
+}
+
+// Server → Client: Error occurred
+export interface FocusVoiceErrorData {
+  sessionId: string;
+  focusId: string;
+  error: string;
+  code?: string;
+  timestamp: string;
+}
+
+// Server → Client: Session ended with full transcript
+export interface FocusVoiceEndedData {
+  sessionId: string;
+  focusId: string;
+  fullTranscript: string;
+  chunks: Array<{
+    id: string;
+    text: string;
+    wordCount: number;
+    confidence: number;
+    reason: string;
+  }>;
+  timestamp: string;
+}
+
+// ============================================================================
 // Focus Edge Types (Task 4: Connect and Disconnect nodes)
 // ============================================================================
 
@@ -314,6 +436,13 @@ export interface ClientToServerEvents {
     data: RejectBatchData,
     callback: (ack: RejectBatchAck) => void
   ) => void;
+  // Focus voice events (Task 9)
+  'focus:voice-start': (
+    data: FocusVoiceStartData,
+    callback: (ack: FocusVoiceAck) => void
+  ) => void;
+  'focus:voice-audio': (data: FocusVoiceAudioData) => void;
+  'focus:voice-end': (data: FocusVoiceEndData) => void;
 }
 
 export interface ServerToClientEvents {
@@ -346,6 +475,14 @@ export interface ServerToClientEvents {
   'change-batch-pending': (data: ChangeBatchPendingData) => void;
   'change-batch-approved': (data: ChangeBatchApprovedData) => void;
   'basis-created': (data: BasisCreatedData) => void;
+  // Focus voice events (Task 9)
+  'focus:voice-started': (data: FocusVoiceStartedData) => void;
+  'focus:voice-partial': (data: FocusVoicePartialData) => void;
+  'focus:voice-transcript': (data: FocusVoiceTranscriptData) => void;
+  'focus:voice-chunk': (data: FocusVoiceChunkData) => void;
+  'focus:voice-processing': (data: FocusVoiceProcessingData) => void;
+  'focus:voice-error': (data: FocusVoiceErrorData) => void;
+  'focus:voice-ended': (data: FocusVoiceEndedData) => void;
 }
 
 // ============================================================================

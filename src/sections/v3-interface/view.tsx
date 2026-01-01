@@ -16,7 +16,6 @@ import {
 } from '@xyflow/react';
 import type { Node, Edge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 import Box from '@mui/material/Box';
 
@@ -62,7 +61,7 @@ import {
   CloudNode,
 } from './nodes';
 import { PulseButtonEdge, HandDrawnEdge, SmartPulseButtonEdge } from './edges';
-import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus, useConnectNodes, useDisconnectNodes, useFocusEdgeSocket, useNodePositionSync, useFocusPositionSocket, useDeleteBasis, useDeleteFocus, useRemoveBasisFromFocus, useFocusRequestSocket } from './hooks';
+import { useCenteredNodes, useAudioAnalyzer, useRequest, useFocus, useUpdateFocus, useConnectNodes, useDisconnectNodes, useFocusEdgeSocket, useNodePositionSync, useFocusPositionSocket, useDeleteBasis, useDeleteFocus, useRemoveBasisFromFocus, useFocusRequestSocket, useFocusVoice } from './hooks';
 import type { CreatedBasis } from './hooks';
 import { V3InterfaceProvider, useV3Interface } from './context';
 import { STYLE_PRESETS, MESH_GRADIENT_PRESETS } from './types';
@@ -1539,36 +1538,42 @@ function V3InterfaceViewInner({
     updateInterval: 50,
   });
 
-  // Speech recognition for live transcription
+  // Socket-based voice transcription (replaces react-speech-recognition)
   const {
-    transcript,
-    interimTranscript,
-    listening,
-    resetTranscript,
-    browserSupportsSpeechRecognition,
-  } = useSpeechRecognition();
+    connected: voiceConnected,
+    isRecording: voiceIsRecording,
+    partialTranscript,
+    finalTranscript,
+    chunks: voiceChunks,
+    isProcessing: voiceIsProcessing,
+    error: voiceError,
+    startRecording,
+    stopRecording,
+    reset: resetVoice,
+  } = useFocusVoice({
+    focusId: focus?.id || null,
+    onVoiceError: (data) => {
+      console.error('[useFocusVoice] Voice error:', data.error);
+      toast.error(data.error || 'Voice transcription error');
+    },
+  });
 
   // Ref for auto-scrolling transcript display
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
-  // Combine transcript + interimTranscript without doubling or gaps
+  // Combine finalTranscript + partialTranscript for display
   const displayTranscript = useMemo(() => {
-    const trimmedInterim = interimTranscript?.trim() || '';
+    const trimmedPartial = partialTranscript?.trim() || '';
 
-    // If no interim, just show transcript
-    if (!trimmedInterim) return transcript || '';
+    // If no partial, just show final transcript
+    if (!trimmedPartial) return finalTranscript || '';
 
-    // If no transcript yet, show interim
-    if (!transcript) return trimmedInterim;
+    // If no final transcript yet, show partial
+    if (!finalTranscript) return trimmedPartial;
 
-    // If transcript already ends with this interim content, don't add it (prevents doubling)
-    if (transcript.toLowerCase().endsWith(trimmedInterim.toLowerCase())) {
-      return transcript;
-    }
-
-    // Combine them: finalized + in-progress
-    return `${transcript} ${trimmedInterim}`;
-  }, [transcript, interimTranscript]);
+    // Combine them: finalized + in-progress partial
+    return `${finalTranscript} ${trimmedPartial}`;
+  }, [finalTranscript, partialTranscript]);
 
   // Auto-scroll to bottom when transcript updates
   useEffect(() => {
@@ -1577,29 +1582,24 @@ function V3InterfaceViewInner({
     }
   }, [displayTranscript]);
 
-  // Debug: Log browser support status on mount
+  // Debug: Log voice connection status
   useEffect(() => {
-    console.log('[SpeechRecognition] Browser supports speech recognition:', browserSupportsSpeechRecognition);
-  }, [browserSupportsSpeechRecognition]);
-
-  // Debug: Log listening state changes
-  useEffect(() => {
-    console.log('[SpeechRecognition] Listening state:', listening);
-  }, [listening]);
+    console.log('[useFocusVoice] Connected:', voiceConnected);
+  }, [voiceConnected]);
 
   // Log transcript to console when it changes during recording
   useEffect(() => {
-    if (transcript) {
-      console.log('[Transcription]', transcript);
+    if (finalTranscript) {
+      console.log('[Transcription]', finalTranscript);
     }
-  }, [transcript]);
+  }, [finalTranscript]);
 
-  // Log interim transcript for real-time feedback
+  // Log partial transcript for real-time feedback
   useEffect(() => {
-    if (interimTranscript) {
-      console.log('[Transcription - interim]', interimTranscript);
+    if (partialTranscript) {
+      console.log('[Transcription - partial]', partialTranscript);
     }
-  }, [interimTranscript]);
+  }, [partialTranscript]);
 
   // Intermediate text steps from "Researching ..." to "Done"
   // Uses random characters for shrinking transition
@@ -2486,8 +2486,8 @@ function V3InterfaceViewInner({
   }, []);
 
   // Handle mic button click - toggle between recording states
-  const handleMicClick = useCallback(() => {
-    console.log('[handleMicClick] Current status:', recordingStatus, 'Browser supports:', browserSupportsSpeechRecognition);
+  const handleMicClick = useCallback(async () => {
+    console.log('[handleMicClick] Current status:', recordingStatus, 'Voice connected:', voiceConnected);
 
     // Clear any existing paused timeout
     if (pausedTimeoutRef.current) {
@@ -2502,35 +2502,64 @@ function V3InterfaceViewInner({
       setRecordingText('Recording ...');
       setRecordingStatus('recording');
       startAudioAnalyzer();
-      // Start speech recognition for live transcription
-      resetTranscript();
-      console.log('[handleMicClick] Starting speech recognition...');
-      SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
+
+      // Start socket-based voice transcription
+      resetVoice();
+      console.log('[handleMicClick] Starting socket voice transcription...');
+      try {
+        await startRecording({
+          researchEnabled: false,
+          enableChunking: false,
+          autoSubmit: true,
+          language: 'en',
+        });
+      } catch (err) {
+        console.error('[handleMicClick] Failed to start voice recording:', err);
+        setRecordingStatus('idle');
+        stopAudioAnalyzer();
+        toast.error('Failed to start voice recording');
+      }
     } else if (recordingStatus === 'recording') {
-      // Pause recording - use HyperText transition and stop audio analyzer
+      // Stop recording - use HyperText transition and stop audio analyzer
       setRecordingRevealing(false);
       setRecordingText('Paused');
       setRecordingStatus('paused');
       stopAudioAnalyzer();
-      // Stop speech recognition
-      console.log('[handleMicClick] Stopping speech recognition...');
-      SpeechRecognition.stopListening();
+
+      // Stop socket-based voice transcription
+      console.log('[handleMicClick] Stopping socket voice transcription...');
+      await stopRecording(true); // Submit to CRW3
+
       // Start 3-second timer to fade out
       pausedTimeoutRef.current = setTimeout(() => {
         setRecordingStatus('fading');
         setTriggerPausedFade(true);
       }, 3000);
     } else if (recordingStatus === 'paused') {
-      // Resume recording - use HyperText transition and restart audio analyzer
+      // Resume recording - start a new voice session
       setRecordingRevealing(false);
       setRecordingText('Recording ...');
       setRecordingStatus('recording');
       startAudioAnalyzer();
-      // Resume speech recognition
-      console.log('[handleMicClick] Resuming speech recognition...');
-      SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
+
+      // Start new socket-based voice session
+      resetVoice();
+      console.log('[handleMicClick] Starting new socket voice session...');
+      try {
+        await startRecording({
+          researchEnabled: false,
+          enableChunking: false,
+          autoSubmit: true,
+          language: 'en',
+        });
+      } catch (err) {
+        console.error('[handleMicClick] Failed to resume voice recording:', err);
+        setRecordingStatus('idle');
+        stopAudioAnalyzer();
+        toast.error('Failed to resume voice recording');
+      }
     }
-  }, [recordingStatus, startAudioAnalyzer, stopAudioAnalyzer, resetTranscript, browserSupportsSpeechRecognition]);
+  }, [recordingStatus, startAudioAnalyzer, stopAudioAnalyzer, voiceConnected, startRecording, stopRecording, resetVoice]);
 
   // Handle when paused fade-out is complete - reset to idle
   const handlePausedFadeComplete = useCallback(() => {
@@ -2538,9 +2567,9 @@ function V3InterfaceViewInner({
     setTriggerPausedFade(false);
     setRecordingText('Recording ...');
     stopAudioAnalyzer();
-    // Ensure speech recognition is stopped
-    SpeechRecognition.stopListening();
-  }, [stopAudioAnalyzer]);
+    // Reset voice state
+    resetVoice();
+  }, [stopAudioAnalyzer, resetVoice]);
 
   // Handle mouse move on the pane to detect which grid square is hovered
   const handlePaneMouseMove = useCallback(

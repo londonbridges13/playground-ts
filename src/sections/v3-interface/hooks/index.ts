@@ -60,3 +60,13 @@ export type {
   UseFocusRequestSocketOptions,
   UseFocusRequestSocketReturn,
 } from './use-focus-request-socket';
+
+// Focus Voice hooks (9. Voice request)
+export { useFocusVoice } from './use-focus-voice';
+export type {
+  VoiceChunk,
+  FocusVoiceState,
+  UseFocusVoiceOptions,
+  StartRecordingOptions,
+  UseFocusVoiceReturn,
+} from './use-focus-voice';
