@@ -331,6 +331,55 @@ export interface FocusVoiceEndedData {
 }
 
 // ============================================================================
+// Semantic Search Types (Task 2.51: Semantic Search for Focuses and Bases)
+// ============================================================================
+
+export type SemanticSearchMode = 'content' | 'contextual' | 'structural' | 'hybrid';
+
+// Client → Server: Semantic search request
+export interface SemanticSearchData {
+  query: string;                    // Natural language search query
+  types?: Array<'focus' | 'basis'>; // Filter by type (default: both)
+  mode?: SemanticSearchMode;        // Search mode (default: 'content')
+  limit?: number;                   // Max results (default: 20)
+  threshold?: number;               // Similarity threshold 0-1 (default: 0.5)
+  entityTypes?: string[];           // Filter bases by entity type
+  focusId?: string;                 // Search within a specific Focus
+}
+
+// Semantic search result for Focus
+export interface SemanticSearchFocusResult {
+  id: string;
+  title: string;
+  description: string | null;
+  similarity: number;               // Semantic similarity score (0-1)
+  matchedOn: 'content' | 'contextual' | 'structural';
+  type: 'focus';
+}
+
+// Semantic search result for Basis
+export interface SemanticSearchBasisResult {
+  id: string;
+  title: string;
+  description: string | null;
+  entityType: string;
+  similarity: number;               // Semantic similarity score (0-1)
+  matchedOn: 'content' | 'contextual' | 'structural';
+  type: 'basis';
+}
+
+// Server acknowledgment for user:semantic-search
+export interface SemanticSearchAck {
+  success: boolean;
+  results?: {
+    focuses: SemanticSearchFocusResult[];
+    bases: SemanticSearchBasisResult[];
+  };
+  totalResults?: number;
+  error?: string;
+}
+
+// ============================================================================
 // Focus Edge Types (Task 4: Connect and Disconnect nodes)
 // ============================================================================
 
@@ -443,6 +492,11 @@ export interface ClientToServerEvents {
   ) => void;
   'focus:voice-audio': (data: FocusVoiceAudioData) => void;
   'focus:voice-end': (data: FocusVoiceEndData) => void;
+  // Semantic search events (Task 2.51)
+  'user:semantic-search': (
+    data: SemanticSearchData,
+    callback: (ack: SemanticSearchAck) => void
+  ) => void;
 }
 
 export interface ServerToClientEvents {

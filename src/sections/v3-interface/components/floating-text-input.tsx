@@ -53,6 +53,7 @@ type FloatingTextInputProps = {
   onLoadModeActivated?: () => void;
   onCopyFocusData?: () => void;
   onEditFocus?: () => void;
+  onSubscribe?: () => void;
   recordingStatus?: RecordingStatus;
   currentGoalId?: string;
   // NEW: Context and Focus info for request submission
@@ -75,6 +76,7 @@ export function FloatingTextInput({
   onLoadModeActivated,
   onCopyFocusData,
   onEditFocus,
+  onSubscribe,
   recordingStatus = 'idle',
   currentGoalId,
   context,
@@ -277,6 +279,11 @@ export function FloatingTextInput({
   const handleEditFocusClick = () => {
     handleMoreMenuClose();
     onEditFocus?.();
+  };
+
+  const handleSubscribeClick = () => {
+    handleMoreMenuClose();
+    onSubscribe?.();
   };
 
   return (
@@ -543,6 +550,12 @@ export function FloatingTextInput({
                 <Iconify icon="solar:pen-bold" width={20} />
               </ListItemIcon>
               <ListItemText primary="Edit Focus" />
+            </MenuItem>
+            <MenuItem onClick={handleSubscribeClick}>
+              <ListItemIcon>
+                <Iconify icon="solar:credit-card-bold" width={20} />
+              </ListItemIcon>
+              <ListItemText primary="Subscribe to Pro" />
             </MenuItem>
           </Menu>
         </Box>

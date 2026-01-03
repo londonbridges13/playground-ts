@@ -162,4 +162,10 @@ export const endpoints = {
     update: (type: string, id: string) => `/api/entities/${type}/${id}`,
     delete: (type: string, id: string) => `/api/entities/${type}/${id}`,
   },
+  // Stripe endpoints
+  stripe: {
+    createCheckoutSession: '/api/stripe/create-checkout-session',
+    createPortalSession: '/api/stripe/create-portal-session',
+    subscriptionStatus: '/api/stripe/subscription-status',
+  },
 } as const;

@@ -11,6 +11,10 @@ export type { ListBasesData, BasisListItem } from './use-list-bases';
 export { useSearch } from './use-search';
 export type { SearchData, SearchFocusResult, SearchBasisResult, SearchResults } from './use-search';
 
+// Semantic Search hooks (2.51)
+export { useSemanticSearch } from './use-semantic-search';
+export type { SemanticSearchResults, SemanticSearchOptions } from './use-semantic-search';
+
 // Focus CRUD hooks (2.6, 2.7)
 export { useFocus } from './use-focus';
 export type { FocusData, FocusBasis, LoadedFocus } from './use-focus';

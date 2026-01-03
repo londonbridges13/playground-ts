@@ -45,6 +45,7 @@ import { ResponseSnackbar } from './components/response-snackbar';
 import { ApprovalSnackbar } from './components/approval-snackbar';
 import { ObjectCreatedSnackbar } from './components/object-created-snackbar';
 import { RequestErrorSnackbar } from './components/request-error-snackbar';
+import { StripeCheckoutDialog } from './components/stripe-checkout-dialog';
 import { Iconify } from 'src/components/iconify';
 import IconButton from '@mui/material/IconButton';
 import {
@@ -1348,6 +1349,9 @@ function V3InterfaceViewInner({
 
   // State for Delete Focus dialog (Task 4.2)
   const [deleteFocusDialogOpen, setDeleteFocusDialogOpen] = useState(false);
+
+  // State for Stripe Checkout dialog
+  const [stripeCheckoutOpen, setStripeCheckoutOpen] = useState(false);
 
   // Socket hook for real-time edge updates (Task 4)
   useFocusEdgeSocket({
@@ -3147,6 +3151,7 @@ function V3InterfaceViewInner({
           onLoadModeActivated={handleLoadModeActivated}
           onCopyFocusData={handleCopyFocusData}
           onEditFocus={handleOpenEditFocusDialog}
+          onSubscribe={() => setStripeCheckoutOpen(true)}
           recordingStatus={recordingStatus}
           // V3 Context props for request submission
           context={context ? {
@@ -3441,6 +3446,12 @@ function V3InterfaceViewInner({
         onClose={() => setDeleteFocusDialogOpen(false)}
         onConfirm={handleDeleteFocus}
         loading={deleteFocusLoading}
+      />
+
+      {/* Stripe Checkout Dialog */}
+      <StripeCheckoutDialog
+        open={stripeCheckoutOpen}
+        onClose={() => setStripeCheckoutOpen(false)}
       />
 
       {/* Rename Snackbar - shows after creating new focus */}

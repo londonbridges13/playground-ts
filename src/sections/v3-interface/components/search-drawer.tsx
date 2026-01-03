@@ -78,7 +78,7 @@ export function SearchDrawer({ open, onClose, onNewFocus, onSelectFocus, onSelec
     };
   }, [open, clearResults]);
 
-  // Debounced search
+  // Debounced semantic search
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -424,7 +424,9 @@ export function SearchDrawer({ open, onClose, onNewFocus, onSelectFocus, onSelec
 
   // Render search results
   const renderSearchResults = () => {
-    const { focuses: searchFocuses, bases: searchBases } = searchResults;
+    // Defensive: ensure arrays are always defined even if server returns undefined
+    const searchFocuses = searchResults?.focuses || [];
+    const searchBases = searchResults?.bases || [];
     const showFocuses = activeFilter === 'all' || activeFilter === 'focuses';
     const showBases = activeFilter === 'all' || activeFilter === 'bases';
     const hasResults = (showFocuses && searchFocuses.length > 0) || (showBases && searchBases.length > 0);

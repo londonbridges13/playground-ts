@@ -15,6 +15,7 @@ export { NodeCheckbox } from './node-checkbox';
 export { SearchDrawer } from './search-drawer';
 export { DeleteFocusDialog } from './delete-focus-dialog';
 export { RenameSnackbar } from './rename-snackbar';
+export { StripeCheckoutDialog } from './stripe-checkout-dialog';
 
 // Focus Request Snackbars (Task 3)
 export { RequestLoadingSnackbar } from './request-loading-snackbar';
